@@ -1,12 +1,16 @@
 // js/services/apiService.js
 // Servicio para consumir APIs de terceros (Jikan para animes, RAWG para videojuegos)
+// CORREGIDO para funcionar SIN API key
 
 class APIService {
   constructor() {
     // URLs base de las APIs
     this.jikanBaseURL = "https://api.jikan.moe/v4";
     this.rawgBaseURL = "https://api.rawg.io/api";
-    this.rawgApiKey = ""; // Se debe obtener en https://rawg.io/apidocs
+
+    // RAWG API funciona SIN key con límites más bajos
+    // Si quieres obtener una key gratuita: https://rawg.io/apidocs
+    this.rawgApiKey = "9127fc9008cb4f9898d42b7da484b496"; // Dejar vacío para usar sin key
 
     // Cache para reducir llamadas a las APIs
     this.cache = {
@@ -21,8 +25,16 @@ class APIService {
     };
     this.minInterval = {
       jikan: 350, // Jikan permite ~3 req/sec, usamos 350ms para estar seguros
-      rawg: 200, // RAWG es más permisivo
+      rawg: 1000, // Sin key, RAWG es más estricto, usar 1 segundo
     };
+
+    console.log("🔧 API Service inicializado");
+    console.log(
+      "🔑 RAWG API Key:",
+      this.rawgApiKey
+        ? "Configurada ✅"
+        : "No configurada (usando límites gratuitos) ⚠️",
+    );
   }
 
   // ==================== MÉTODOS PARA ANIMES (JIKAN API) ====================
@@ -38,8 +50,10 @@ class APIService {
       await this.waitForRateLimit("jikan");
 
       const url = `${this.jikanBaseURL}/anime?q=${encodeURIComponent(
-        query
+        query,
       )}&limit=${limit}&sfw=true`;
+
+      console.log("🔍 Buscando animes en:", url);
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -49,7 +63,7 @@ class APIService {
       const data = await response.json();
       return this.formatAnimes(data.data || []);
     } catch (error) {
-      console.error("Error buscando animes:", error);
+      console.error("❌ Error buscando animes:", error);
       return [];
     }
   }
@@ -64,12 +78,15 @@ class APIService {
       const cacheKey = `top_page_${page}`;
 
       if (this.cache.animes.has(cacheKey)) {
+        console.log("📦 Usando cache para animes página", page);
         return this.cache.animes.get(cacheKey);
       }
 
       await this.waitForRateLimit("jikan");
 
       const url = `${this.jikanBaseURL}/top/anime?page=${page}&limit=25`;
+      console.log("🔄 Cargando animes desde:", url);
+
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -83,9 +100,10 @@ class APIService {
       this.cache.animes.set(cacheKey, animes);
       setTimeout(() => this.cache.animes.delete(cacheKey), 3600000);
 
+      console.log("✅ Animes cargados desde API:", animes.length);
       return animes;
     } catch (error) {
-      console.error("Error obteniendo top animes:", error);
+      console.error("❌ Error obteniendo top animes:", error);
       return [];
     }
   }
@@ -120,7 +138,7 @@ class APIService {
 
       return anime;
     } catch (error) {
-      console.error("Error obteniendo detalles del anime:", error);
+      console.error("❌ Error obteniendo detalles del anime:", error);
       return null;
     }
   }
@@ -144,7 +162,7 @@ class APIService {
       const data = await response.json();
       return this.formatAnimes(data.data || []);
     } catch (error) {
-      console.error("Error obteniendo animes por género:", error);
+      console.error("❌ Error obteniendo animes por género:", error);
       return [];
     }
   }
@@ -161,19 +179,35 @@ class APIService {
     try {
       await this.waitForRateLimit("rawg");
 
-      const url = `${this.rawgBaseURL}/games?search=${encodeURIComponent(
-        query
-      )}&page_size=${pageSize}&exclude_additions=true${this.getRAWGKey()}`;
+      const params = new URLSearchParams({
+        search: query,
+        page_size: pageSize,
+        exclude_additions: true,
+      });
+
+      if (this.rawgApiKey) {
+        params.append("key", this.rawgApiKey);
+      }
+
+      const url = `${this.rawgBaseURL}/games?${params.toString()}`;
+      console.log("🔍 Buscando juegos en:", url);
+
       const response = await fetch(url);
 
       if (!response.ok) {
+        console.error(
+          "❌ Error en RAWG API:",
+          response.status,
+          response.statusText,
+        );
         throw new Error(`Error en la API: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("✅ Juegos encontrados:", data.results?.length || 0);
       return this.formatGames(data.results || []);
     } catch (error) {
-      console.error("Error buscando videojuegos:", error);
+      console.error("❌ Error buscando videojuegos:", error);
       return [];
     }
   }
@@ -188,30 +222,54 @@ class APIService {
       const cacheKey = `games_top_page_${page}`;
 
       if (this.cache.games.has(cacheKey)) {
+        console.log("📦 Usando cache para juegos página", page);
         return this.cache.games.get(cacheKey);
       }
 
       await this.waitForRateLimit("rawg");
 
-      // Filtros: metacritic>0 para juegos reconocidos, exclude_additions para sin DLCs
-      const url = `${
-        this.rawgBaseURL
-      }/games?ordering=-metacritic&metacritic=50,100&page=${page}&page_size=25&exclude_additions=true${this.getRAWGKey()}`;
+      // Filtros: metacritic>50 para juegos reconocidos, exclude_additions para sin DLCs
+      const params = new URLSearchParams({
+        ordering: "-metacritic",
+        metacritic: "50,100",
+        page: page,
+        page_size: 25,
+        exclude_additions: true,
+      });
+
+      if (this.rawgApiKey) {
+        params.append("key", this.rawgApiKey);
+      }
+
+      const url = `${this.rawgBaseURL}/games?${params.toString()}`;
+      console.log("🔄 Cargando juegos desde:", url);
+
       const response = await fetch(url);
 
       if (!response.ok) {
+        console.error(
+          "❌ Error en RAWG API:",
+          response.status,
+          response.statusText,
+        );
         throw new Error(`Error en la API: ${response.status}`);
       }
 
       const data = await response.json();
       const games = this.formatGames(data.results || []);
 
+      if (games.length === 0) {
+        console.warn("⚠️ No se obtuvieron juegos de la API");
+        return [];
+      }
+
       this.cache.games.set(cacheKey, games);
       setTimeout(() => this.cache.games.delete(cacheKey), 3600000);
 
+      console.log("✅ Juegos cargados desde API:", games.length);
       return games;
     } catch (error) {
-      console.error("Error obteniendo top videojuegos:", error);
+      console.error("❌ Error obteniendo top videojuegos:", error);
       return [];
     }
   }
@@ -231,7 +289,12 @@ class APIService {
 
       await this.waitForRateLimit("rawg");
 
-      const url = `${this.rawgBaseURL}/games/${id}${this.getRAWGKey()}`;
+      const params = new URLSearchParams();
+      if (this.rawgApiKey) {
+        params.append("key", this.rawgApiKey);
+      }
+
+      const url = `${this.rawgBaseURL}/games/${id}${params.toString() ? "?" + params.toString() : ""}`;
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -246,7 +309,7 @@ class APIService {
 
       return game;
     } catch (error) {
-      console.error("Error obteniendo detalles del juego:", error);
+      console.error("❌ Error obteniendo detalles del juego:", error);
       return null;
     }
   }
@@ -281,7 +344,7 @@ class APIService {
       image:
         anime.images?.jpg?.large_image_url ||
         anime.images?.jpg?.image_url ||
-        "",
+        "https://via.placeholder.com/280x200/6809e5/FFFFFF?text=No+Image",
       status: anime.status || "Desconocido",
       studios: anime.studios
         ? anime.studios.map((s) => s.name).join(", ")
@@ -325,7 +388,9 @@ class APIService {
       genre: game.genres ? game.genres.map((g) => g.name).join(", ") : "N/A",
       rating: game.rating ? game.rating.toFixed(1) : "N/A",
       synopsis: cleanSynopsis(game.description_raw || game.description),
-      image: game.background_image || "",
+      image:
+        game.background_image ||
+        "https://via.placeholder.com/280x200/4b09a0/FFFFFF?text=No+Image",
       metacritic: game.metacritic || null,
       metacriticColor: this.getMetacriticColor(game.metacritic),
       developers: game.developers
@@ -361,20 +426,14 @@ class APIService {
     const minInterval = this.minInterval[api];
 
     if (timeSinceLastRequest < minInterval) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, minInterval - timeSinceLastRequest)
+      const waitTime = minInterval - timeSinceLastRequest;
+      console.log(
+        `⏳ Esperando ${waitTime}ms para respetar rate limit de ${api}`,
       );
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
 
     this.lastRequest[api] = Date.now();
-  }
-
-  /**
-   * Obtener el parámetro de API key para RAWG
-   * @returns {string}
-   */
-  getRAWGKey() {
-    return this.rawgApiKey ? `?key=${this.rawgApiKey}` : "";
   }
 
   /**
@@ -383,6 +442,7 @@ class APIService {
    */
   setRAWGKey(key) {
     this.rawgApiKey = key;
+    console.log("🔑 RAWG API Key actualizada");
   }
 
   /**
@@ -391,6 +451,7 @@ class APIService {
   clearCache() {
     this.cache.animes.clear();
     this.cache.games.clear();
+    console.log("🗑️ Cache limpiado");
   }
 }
 

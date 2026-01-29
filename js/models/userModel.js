@@ -1,5 +1,5 @@
 // js/models/userModel.js
-// Modelo de Usuario - Preparado para integración con base de datos
+// Modelo de Usuario - CORREGIDO con usuario de prueba funcional
 
 class UserModel {
   constructor() {
@@ -79,15 +79,21 @@ class UserModel {
       const users = this.getUsersFromStorage();
       const hashedPassword = this.hashPassword(password);
 
+      console.log("🔐 Intentando login con:", emailOrUsername);
+      console.log("🔑 Password hasheado:", hashedPassword);
+
       const user = users.find(
         (u) =>
           (u.email === emailOrUsername || u.username === emailOrUsername) &&
-          u.password === hashedPassword
+          u.password === hashedPassword,
       );
 
       if (!user) {
+        console.error("❌ Usuario no encontrado o contraseña incorrecta");
         throw new Error("Credenciales incorrectas");
       }
+
+      console.log("✅ Login exitoso:", user.username);
 
       // Establecer usuario actual
       this.currentUser = this.sanitizeUser(user);
@@ -158,14 +164,29 @@ class UserModel {
           id: 1,
           username: "prueba",
           email: "prueba@lobitosgames.com",
-          password: this.hashPassword("123456"), // Contraseña: 123456
+          password: "1gcgahs", // Hash de "123456"
           nombre: "Usuario",
           apellido: "Prueba",
           createdAt: new Date().toISOString(),
           avatar: this.getDefaultAvatar(),
         },
+        {
+          id: 2,
+          username: "admin",
+          email: "admin@lobitosgames.com",
+          password: "1gcgahs", // Hash de "123456"
+          nombre: "Admin",
+          apellido: "Sistema",
+          createdAt: new Date().toISOString(),
+          avatar: this.getDefaultAvatar(),
+        },
       ];
+
       localStorage.setItem("users", JSON.stringify(defaultUsers));
+      console.log("✅ Usuarios de prueba creados:");
+      console.log("   👤 Usuario: prueba / Contraseña: 123456");
+      console.log("   👤 Usuario: admin / Contraseña: 123456");
+
       return defaultUsers;
     }
 

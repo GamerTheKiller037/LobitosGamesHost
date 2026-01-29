@@ -1,5 +1,5 @@
 // js/views/viewManager.js
-// ACTUALIZADO con soporte de paginación
+// ACTUALIZADO con soporte de paginación y sección de listas
 
 class ViewManager {
   constructor() {
@@ -12,6 +12,9 @@ class ViewManager {
     this.setupSearch();
     this.setupModal();
     this.showSection("home");
+
+    // Inicializar controlador de autenticación
+    authController.init();
   }
 
   setupNavigation() {
@@ -25,6 +28,16 @@ class ViewManager {
   }
 
   showSection(sectionName) {
+    // Verificar si es la sección de listas y el usuario no está logueado
+    if (sectionName === "my-lists" && !userModel.isLoggedIn()) {
+      authController.showMessage(
+        "Debes iniciar sesión para ver tus listas",
+        "error",
+      );
+      authController.showLoginModal();
+      return;
+    }
+
     const sections = document.querySelectorAll(".section");
     sections.forEach((section) => section.classList.remove("active"));
 
@@ -37,7 +50,7 @@ class ViewManager {
     const navButtons = document.querySelectorAll(".nav-btn");
     navButtons.forEach((btn) => btn.classList.remove("active"));
     const activeButton = document.querySelector(
-      `[data-section="${sectionName}"]`
+      `[data-section="${sectionName}"]`,
     );
     if (activeButton) {
       activeButton.classList.add("active");
@@ -45,7 +58,7 @@ class ViewManager {
 
     const searchSection = document.getElementById("searchSection");
     if (searchSection) {
-      if (sectionName === "home") {
+      if (sectionName === "home" || sectionName === "my-lists") {
         searchSection.classList.remove("active");
       } else {
         searchSection.classList.add("active");
@@ -71,6 +84,9 @@ class ViewManager {
         // Inicializar paginación de videojuegos
         gameController.updatePaginationUI();
         break;
+      case "my-lists":
+        await this.loadUserLists();
+        break;
     }
   }
 
@@ -78,12 +94,21 @@ class ViewManager {
     const featuredContent = document.getElementById("featuredContent");
     if (!featuredContent) return;
 
+    featuredContent.innerHTML =
+      '<div class="loading"><p>Cargando contenido...</p></div>';
+
     await Promise.all([animeModel.loadAnimes(), gameModel.loadGames()]);
 
     const animes = animeController.getFeaturedAnimes();
     const games = gameController.getFeaturedGames();
 
     const allFeatured = [...animes, ...games];
+
+    if (allFeatured.length === 0) {
+      featuredContent.innerHTML =
+        '<div class="error-message"><p>No se pudo cargar el contenido destacado</p></div>';
+      return;
+    }
 
     featuredContent.innerHTML = allFeatured
       .map((item) => {
@@ -102,7 +127,7 @@ class ViewManager {
 
         return `
                 <div class="catalog-item" onclick="${controller}.showDetails(${item.id})">
-                    <img src="${item.image}" alt="${item.title}" class="item-poster">
+                    <img src="${item.image}" alt="${item.title}" class="item-poster" onerror="this.src='https://via.placeholder.com/280x200/6809e5/FFFFFF?text=No+Image'">
                     <div class="item-info">
                         <h3>${item.title}</h3>
                         <div class="item-meta">
@@ -113,6 +138,60 @@ class ViewManager {
                     </div>
                 </div>
             `;
+      })
+      .join("");
+  }
+
+  /**
+   * Cargar las listas del usuario
+   */
+  async loadUserLists() {
+    if (!userModel.isLoggedIn()) {
+      return;
+    }
+
+    const lists = userListModel.getUserLists();
+
+    // Renderizar cada lista
+    this.renderList("favoritosList", lists.favoritos);
+    this.renderList("viendoJugandoList", [...lists.viendo, ...lists.jugando]);
+    this.renderList("considerandoList", lists.considerando);
+    this.renderList("completadoList", lists.completado);
+    this.renderList("dropeadoList", lists.dropeado);
+  }
+
+  /**
+   * Renderizar una lista específica
+   * @param {string} containerId - ID del contenedor
+   * @param {Array} items - Items a renderizar
+   */
+  renderList(containerId, items) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!items || items.length === 0) {
+      container.innerHTML =
+        '<div class="list-empty">No hay items en esta lista</div>';
+      return;
+    }
+
+    container.innerHTML = items
+      .map((item) => {
+        const isAnime = item.mediaType === "anime";
+        const controller = isAnime ? "animeController" : "gameController";
+
+        return `
+          <div class="catalog-item" onclick="${controller}.showDetails(${item.id})">
+            <img src="${item.image}" alt="${item.title}" class="item-poster" onerror="this.src='https://via.placeholder.com/200x280/6809e5/FFFFFF?text=No+Image'">
+            <div class="item-info">
+              <h3>${item.title}</h3>
+              <div class="item-meta">
+                <span class="year">${item.year}</span>
+              </div>
+              <p class="genre">${item.genre}</p>
+            </div>
+          </div>
+        `;
       })
       .join("");
   }

@@ -1,5 +1,5 @@
 // js/controllers/authController.js
-// Controlador de autenticación y gestión de usuario
+// Controlador de autenticación y gestión de usuario - CORREGIDO
 
 class AuthController {
   constructor() {
@@ -12,14 +12,61 @@ class AuthController {
   init() {
     this.setupEventListeners();
     this.updateUIState();
+
+    // Mostrar botón de "Mis Listas" si el usuario está logueado
+    const myListsBtn = document.getElementById("myListsBtn");
+    if (myListsBtn) {
+      myListsBtn.style.display = this.model.isLoggedIn() ? "block" : "none";
+    }
   }
 
   /**
    * Configurar event listeners
    */
   setupEventListeners() {
-    // Event listeners para formularios de login y registro
-    // Se configurarán cuando se creen los modales
+    // Event listener para formulario de login
+    const loginForm = document.getElementById("loginForm");
+    if (loginForm) {
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const email = document.getElementById("loginEmail").value;
+        const password = document.getElementById("loginPassword").value;
+
+        if (!email || !password) {
+          this.showMessage("Por favor completa todos los campos", "error");
+          return;
+        }
+
+        await this.handleLogin(email, password);
+      });
+    }
+
+    // Event listener para formulario de registro
+    const registerForm = document.getElementById("registerForm");
+    if (registerForm) {
+      registerForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const formData = {
+          nombre: document.getElementById("regNombre").value,
+          apellido: document.getElementById("regApellido").value,
+          username: document.getElementById("regUsername").value,
+          email: document.getElementById("regEmail").value,
+          password: document.getElementById("regPassword").value,
+          confirmPassword: document.getElementById("regConfirmPassword").value,
+        };
+
+        // Validar formulario
+        const validation = this.validateRegisterForm(formData);
+        if (!validation.valid) {
+          this.showMessage(validation.errors.join(", "), "error");
+          return;
+        }
+
+        await this.handleRegister(formData);
+      });
+    }
   }
 
   /**
@@ -31,13 +78,21 @@ class AuthController {
       const result = await this.model.register(formData);
 
       if (result.success) {
+        // Limpiar formulario
+        document.getElementById("registerForm").reset();
+
         // Mostrar mensaje de éxito
         this.showMessage(
           "Registro exitoso. Por favor inicia sesión.",
-          "success"
+          "success",
         );
+
         // Cerrar modal de registro y abrir login
-        this.showLoginModal();
+        this.closeAuthModals();
+
+        setTimeout(() => {
+          this.showLoginModal();
+        }, 500);
       } else {
         this.showMessage(result.error, "error");
       }
@@ -57,9 +112,18 @@ class AuthController {
       const result = await this.model.login(emailOrUsername, password);
 
       if (result.success) {
+        // Limpiar formulario
+        document.getElementById("loginForm").reset();
+
         this.showMessage(`¡Bienvenido, ${result.user.nombre}!`, "success");
         this.updateUIState();
         this.closeAuthModals();
+
+        // Mostrar botón de "Mis Listas"
+        const myListsBtn = document.getElementById("myListsBtn");
+        if (myListsBtn) {
+          myListsBtn.style.display = "block";
+        }
       } else {
         this.showMessage(result.error, "error");
       }
@@ -77,6 +141,12 @@ class AuthController {
       this.model.logout();
       this.updateUIState();
       this.showMessage("Sesión cerrada exitosamente", "info");
+
+      // Ocultar botón de "Mis Listas"
+      const myListsBtn = document.getElementById("myListsBtn");
+      if (myListsBtn) {
+        myListsBtn.style.display = "none";
+      }
 
       // Redirigir a inicio
       if (viewManager) {
@@ -117,6 +187,12 @@ class AuthController {
         userMenu.style.display = "none";
       }
     }
+
+    // Actualizar botón de "Mis Listas"
+    const myListsBtn = document.getElementById("myListsBtn");
+    if (myListsBtn) {
+      myListsBtn.style.display = isLoggedIn ? "block" : "none";
+    }
   }
 
   /**
@@ -127,6 +203,12 @@ class AuthController {
     if (modal) {
       modal.classList.add("active");
       document.body.style.overflow = "hidden";
+
+      // Focus en el primer campo
+      setTimeout(() => {
+        const emailInput = document.getElementById("loginEmail");
+        if (emailInput) emailInput.focus();
+      }, 100);
     }
   }
 
@@ -138,6 +220,12 @@ class AuthController {
     if (modal) {
       modal.classList.add("active");
       document.body.style.overflow = "hidden";
+
+      // Focus en el primer campo
+      setTimeout(() => {
+        const nombreInput = document.getElementById("regNombre");
+        if (nombreInput) nombreInput.focus();
+      }, 100);
     }
   }
 
