@@ -21,7 +21,7 @@ class App {
       await carouselController.init();
 
       this.setupScrollEffect();
-      this.setupSearchHandlers();
+      // this.setupSearchHandlers();
 
       console.log(`LobitosGames v${this.version} initialized`);
       console.log("Módulos activos: Búsqueda Avanzada, Validación, CAPTCHA");

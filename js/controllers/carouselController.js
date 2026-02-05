@@ -1,10 +1,10 @@
-// js/controllers/carouselController.js
+// js/controllers/carouselController.js - CORREGIDO
 class CarouselController {
   constructor() {
     this.currentIndex = 0;
     this.slides = [];
     this.autoPlayInterval = null;
-    this.autoPlayDelay = 5000; // 5 segundos
+    this.autoPlayDelay = 5000;
   }
 
   async init() {
@@ -16,68 +16,103 @@ class CarouselController {
 
   async loadFeaturedContent() {
     try {
-      // Cargar top 4 animes y top 4 juegos
+      // Usar métodos que SÍ existen en apiService
       const topAnimes = await apiService.getTopAnimes(1, 4);
-      const topGames = await apiService.getGames(1, 4);
 
-      // Combinar y crear slides
+      // Para juegos, usar el método correcto
+      let topGames = [];
+      try {
+        // Llamar al método que carga juegos
+        await gameModel.loadGames(1);
+        topGames = gameModel.getAllGames().slice(0, 4);
+      } catch (error) {
+        console.warn("No se pudieron cargar juegos:", error);
+      }
+
       this.slides = [];
 
       // Agregar animes
-      topAnimes.forEach((anime) => {
-        this.slides.push({
-          type: "anime",
-          id: anime.mal_id,
-          title: anime.title,
-          image:
-            anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url,
-          rating: anime.score || "N/A",
-          description: this.truncateDescription(
-            anime.synopsis || "Sin descripción disponible",
-            150,
-          ),
-          year: anime.year || anime.aired?.prop?.from?.year || "N/A",
-          genre:
-            anime.genres
-              ?.map((g) => g.name)
-              .slice(0, 3)
-              .join(", ") || "Anime",
+      if (topAnimes && topAnimes.length > 0) {
+        topAnimes.forEach((anime) => {
+          this.slides.push({
+            type: "anime",
+            id: anime.mal_id,
+            title: anime.title,
+            image:
+              anime.images?.jpg?.large_image_url ||
+              anime.images?.jpg?.image_url ||
+              "https://via.placeholder.com/800x450?text=Anime",
+            rating: anime.score || "N/A",
+            description: this.truncateDescription(
+              anime.synopsis || "Sin descripción disponible",
+              120,
+            ),
+            year: anime.year || anime.aired?.prop?.from?.year || "N/A",
+            genre:
+              anime.genres
+                ?.map((g) => g.name)
+                .slice(0, 2)
+                .join(", ") || "Anime",
+          });
         });
-      });
+      }
 
       // Agregar juegos
-      topGames.forEach((game) => {
-        this.slides.push({
-          type: "game",
-          id: game.id,
-          title: game.name,
-          image: game.background_image,
-          rating: game.rating || "N/A",
-          description: this.truncateDescription(
-            game.description_raw ||
-              game.description ||
-              "Sin descripción disponible",
-            150,
-          ),
-          year: game.released ? new Date(game.released).getFullYear() : "N/A",
-          genre:
-            game.genres
-              ?.map((g) => g.name)
-              .slice(0, 3)
-              .join(", ") || "Videojuego",
+      if (topGames && topGames.length > 0) {
+        topGames.forEach((game) => {
+          this.slides.push({
+            type: "game",
+            id: game.id,
+            title: game.name,
+            image:
+              game.background_image ||
+              "https://via.placeholder.com/800x450?text=Game",
+            rating: game.rating || "N/A",
+            description: this.truncateDescription(
+              game.description_raw || "Sin descripción disponible",
+              120,
+            ),
+            year: game.released ? new Date(game.released).getFullYear() : "N/A",
+            genre:
+              game.genres
+                ?.map((g) => g.name)
+                .slice(0, 2)
+                .join(", ") || "Videojuego",
+          });
         });
-      });
+      }
 
-      // Mezclar aleatoriamente
+      // Mezclar
       this.shuffleSlides();
 
+      // Renderizar
       this.renderCarousel();
       this.renderIndicators();
 
       console.log(`✅ Carrusel cargado con ${this.slides.length} slides`);
     } catch (error) {
       console.error("❌ Error cargando contenido del carrusel:", error);
+      // Crear slides de fallback
+      this.createFallbackSlides();
     }
+  }
+
+  createFallbackSlides() {
+    this.slides = [
+      {
+        type: "anime",
+        id: 1,
+        title: "Cargando contenido...",
+        image: "https://via.placeholder.com/800x450?text=LobitosGames",
+        rating: "9.0",
+        description:
+          "Descubre los mejores animes y videojuegos en LobitosGames",
+        year: "2026",
+        genre: "Entretenimiento",
+      },
+    ];
+    this.renderCarousel();
+    this.renderIndicators();
   }
 
   shuffleSlides() {
@@ -88,32 +123,41 @@ class CarouselController {
   }
 
   truncateDescription(text, maxLength) {
-    if (!text) return "";
+    if (!text) return "Sin descripción disponible";
 
-    // Limpiar HTML
-    const cleanText = text.replace(/<[^>]*>/g, "");
+    const cleanText = text.replace(/<[^>]*>/g, "").replace(/\[.*?\]/g, "");
 
     if (cleanText.length <= maxLength) return cleanText;
 
-    // Cortar en la última palabra completa
     const truncated = cleanText.substring(0, maxLength);
     const lastSpace = truncated.lastIndexOf(" ");
 
-    return truncated.substring(0, lastSpace) + "...";
+    return (
+      truncated.substring(0, lastSpace > 0 ? lastSpace : maxLength) + "..."
+    );
   }
 
   renderCarousel() {
     const track = document.getElementById("carouselTrack");
-    if (!track) return;
+    if (!track) {
+      console.warn("No se encontró el elemento carouselTrack");
+      return;
+    }
+
+    if (this.slides.length === 0) {
+      track.innerHTML =
+        '<div class="carousel-slide active"><div class="carousel-content"><h3>Cargando contenido...</h3></div></div>';
+      return;
+    }
 
     track.innerHTML = this.slides
       .map(
         (slide, index) => `
       <div class="carousel-slide ${index === 0 ? "active" : ""}" data-index="${index}">
         <div class="carousel-image">
-          <img src="${slide.image || "/assets/placeholder.jpg"}" 
+          <img src="${slide.image}" 
                alt="${slide.title}"
-               onerror="this.src='/assets/placeholder.jpg'">
+               onerror="this.src='https://via.placeholder.com/800x450?text=${encodeURIComponent(slide.title)}'">
           <div class="carousel-gradient"></div>
         </div>
         <div class="carousel-content">
@@ -141,6 +185,11 @@ class CarouselController {
     const container = document.getElementById("carouselIndicators");
     if (!container) return;
 
+    if (this.slides.length === 0) {
+      container.innerHTML = "";
+      return;
+    }
+
     container.innerHTML = this.slides
       .map(
         (_, index) => `
@@ -165,14 +214,12 @@ class CarouselController {
       nextBtn.addEventListener("click", () => this.nextSlide());
     }
 
-    // Pausar auto-play al hover
     const container = document.querySelector(".carousel-container");
     if (container) {
       container.addEventListener("mouseenter", () => this.stopAutoPlay());
       container.addEventListener("mouseleave", () => this.startAutoPlay());
     }
 
-    // Swipe en móvil
     this.setupSwipeListeners();
   }
 
@@ -192,7 +239,6 @@ class CarouselController {
       const diff = startX - endX;
 
       if (Math.abs(diff) > 50) {
-        // Mínimo 50px de swipe
         if (diff > 0) {
           this.nextSlide();
         } else {
@@ -211,12 +257,14 @@ class CarouselController {
   }
 
   nextSlide() {
+    if (this.slides.length === 0) return;
     this.currentIndex = (this.currentIndex + 1) % this.slides.length;
     this.updateSlides();
     this.resetAutoPlay();
   }
 
   previousSlide() {
+    if (this.slides.length === 0) return;
     this.currentIndex =
       (this.currentIndex - 1 + this.slides.length) % this.slides.length;
     this.updateSlides();
@@ -237,7 +285,8 @@ class CarouselController {
   }
 
   startAutoPlay() {
-    this.stopAutoPlay(); // Limpiar cualquier intervalo existente
+    if (this.slides.length === 0) return;
+    this.stopAutoPlay();
     this.autoPlayInterval = setInterval(() => {
       this.nextSlide();
     }, this.autoPlayDelay);
@@ -266,5 +315,4 @@ class CarouselController {
   }
 }
 
-// Instanciar controlador
 const carouselController = new CarouselController();

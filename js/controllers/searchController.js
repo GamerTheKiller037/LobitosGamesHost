@@ -1,4 +1,4 @@
-// js/controllers/searchController.js - VERSION COMPATIBLE
+// js/controllers/searchController.js - CON TOGGLE ARREGLADO
 class SearchController {
   constructor() {
     this.advancedPanelOpen = false;
@@ -8,6 +8,7 @@ class SearchController {
   init() {
     console.log("🔍 SearchController inicializado");
     this.setupEventListeners();
+    this.updateGenreFilters();
   }
 
   setupEventListeners() {
@@ -50,6 +51,29 @@ class SearchController {
       });
     }
 
+    // ARREGLADO: Botón de filtros avanzados
+    const btnAdvancedSearch = document.getElementById("btnAdvancedSearch");
+    if (btnAdvancedSearch) {
+      btnAdvancedSearch.addEventListener("click", () => {
+        this.toggleAdvancedSearch();
+      });
+    }
+
+    // Botones de aplicar y limpiar filtros
+    const btnApplyFilters = document.getElementById("btnApplyFilters");
+    if (btnApplyFilters) {
+      btnApplyFilters.addEventListener("click", () => {
+        this.applyAdvancedFilters();
+      });
+    }
+
+    const btnResetFilters = document.getElementById("btnResetFilters");
+    if (btnResetFilters) {
+      btnResetFilters.addEventListener("click", () => {
+        this.resetFilters();
+      });
+    }
+
     // Detectar cambio de sección
     document.querySelectorAll(".nav-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -76,6 +100,31 @@ class SearchController {
         }
       });
     }
+  }
+
+  toggleAdvancedSearch() {
+    const panel = document.getElementById("advancedSearchPanel");
+    const btn = document.getElementById("btnAdvancedSearch");
+
+    if (!panel) {
+      console.error("No se encontró el panel de búsqueda avanzada");
+      return;
+    }
+
+    this.advancedPanelOpen = !this.advancedPanelOpen;
+
+    if (this.advancedPanelOpen) {
+      panel.classList.add("active");
+      if (btn) btn.textContent = "Ocultar Filtros";
+    } else {
+      panel.classList.remove("active");
+      if (btn) btn.textContent = "Filtros Avanzados";
+    }
+
+    console.log(
+      "Panel de filtros:",
+      this.advancedPanelOpen ? "abierto" : "cerrado",
+    );
   }
 
   updateGenreFilters() {
@@ -114,21 +163,6 @@ class SearchController {
       ratingSlider.max = "10";
       ratingSlider.value = "0";
       ratingValue.textContent = "0.0";
-    }
-  }
-
-  toggleAdvancedSearch() {
-    const panel = document.getElementById("advancedSearchPanel");
-    if (!panel) return;
-
-    this.advancedPanelOpen = !this.advancedPanelOpen;
-    panel.classList.toggle("active", this.advancedPanelOpen);
-
-    const btn = document.querySelector(".btn-advanced-search");
-    if (btn) {
-      btn.textContent = this.advancedPanelOpen
-        ? "Ocultar Filtros"
-        : "Filtros Avanzados";
     }
   }
 
@@ -186,12 +220,15 @@ class SearchController {
       });
 
       items = items.filter((game) => {
-        const rating = (parseFloat(game.rating) || 0) * 10; // Convertir a 0-100
+        const rating = (parseFloat(game.rating) || 0) * 10;
         return rating >= filters.rating;
       });
 
       gameController.renderGameGrid(items);
     }
+
+    // Cerrar panel automáticamente
+    this.toggleAdvancedSearch();
   }
 
   resetFilters() {
