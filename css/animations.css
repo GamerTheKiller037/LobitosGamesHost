@@ -1,0 +1,329 @@
+/* css/animations.css */
+/* Animaciones y transiciones - Práctica 2 Unidad 2 */
+
+/* ============================================================
+   VARIABLES
+   ============================================================ */
+:root {
+  --anim-duration-fast: 0.25s;
+  --anim-duration-normal: 0.4s;
+  --anim-duration-slow: 0.65s;
+  --anim-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ============================================================
+   ANIMACIONES DE SCROLL (IntersectionObserver)
+   ============================================================ */
+
+/* Estado inicial: invisible y desplazado */
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(30px);
+  transition:
+    opacity var(--anim-duration-normal) var(--anim-easing),
+    transform var(--anim-duration-normal) var(--anim-easing);
+}
+
+/* Estado final: visible en su posición */
+.animate-on-scroll.animate-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Variantes de dirección */
+.animate-from-left {
+  transform: translateX(-40px);
+}
+.animate-from-right {
+  transform: translateX(40px);
+}
+.animate-from-left.animate-in,
+.animate-from-right.animate-in {
+  transform: translateX(0);
+}
+
+/* Tarjetas con fade */
+.catalog-item {
+  opacity: 0;
+  transform: translateY(20px) scale(0.97);
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease,
+    box-shadow 0.25s ease;
+}
+
+.catalog-item.card-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* ============================================================
+   TRANSICIONES DE CARRUSEL
+   ============================================================ */
+
+.carousel-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transform: translateX(60px);
+  transition:
+    opacity var(--anim-duration-normal) var(--anim-easing),
+    transform var(--anim-duration-normal) var(--anim-easing);
+  pointer-events: none;
+}
+
+.carousel-slide.active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+  position: relative;
+}
+
+/* Animación de entrada/salida para loop */
+.carousel-slide.entrar-siguiente {
+  transform: translateX(60px);
+  opacity: 0;
+}
+.carousel-slide.entrar-anterior {
+  transform: translateX(-60px);
+  opacity: 0;
+}
+.carousel-slide.salir-siguiente {
+  transform: translateX(-60px);
+  opacity: 0;
+}
+.carousel-slide.salir-anterior {
+  transform: translateX(60px);
+  opacity: 0;
+}
+
+/* ============================================================
+   EFECTOS DE HOVER
+   ============================================================ */
+
+/* Botones con efecto de escala */
+.play-btn,
+.btn-login,
+.btn-register,
+.btn-apply-filters {
+  transition:
+    transform var(--anim-duration-fast) ease,
+    background var(--anim-duration-fast) ease,
+    box-shadow var(--anim-duration-fast) ease;
+  will-change: transform;
+}
+
+.play-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 15px rgba(104, 9, 229, 0.5);
+}
+
+/* Imagen del carrusel (parallax) */
+.carousel-image img {
+  transition: transform 0.1s linear;
+  will-change: transform;
+}
+
+/* ============================================================
+   MOSTRAR / OCULTAR SIN display:none
+   ============================================================ */
+
+/* Panel genérico ocultable */
+.panel-ocultable {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-8px);
+  transition:
+    opacity 0.3s ease,
+    visibility 0s linear 0.3s,
+    transform 0.3s ease;
+}
+
+.panel-ocultable.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+/* Panel de búsqueda avanzada */
+#advancedSearchPanel.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================================
+   NOTIFICACIÓN DE NUEVOS DATOS (polling)
+   ============================================================ */
+
+.notificacion-nuevos {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: var(--primary-color, #6809e5);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateX(120%);
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s var(--anim-easing);
+  z-index: 9999;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.notificacion-nuevos.notif-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.notif-icono {
+  font-size: 16px;
+  animation: pulso 1.2s ease infinite;
+}
+
+/* ============================================================
+   LOADER GLOBAL
+   ============================================================ */
+
+#globalLoader {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 20, 0.75);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.loader-spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(104, 9, 229, 0.25);
+  border-top-color: #6809e5;
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+}
+
+.loader-texto {
+  color: #b3b3b3;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+/* ============================================================
+   ERROR VISUAL
+   ============================================================ */
+
+.error-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  color: #b3b3b3;
+  animation: fadeInScale 0.4s ease;
+}
+
+.error-visual-icono {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.error-visual button {
+  margin-top: 16px;
+  padding: 8px 20px;
+  background: var(--primary-color, #6809e5);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.error-visual button:hover {
+  background: #9f59fc;
+}
+
+/* ============================================================
+   KEYFRAMES
+   ============================================================ */
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulso {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.7;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   REDUCIR MOVIMIENTO (accesibilidad)
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
