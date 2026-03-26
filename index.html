@@ -1,6 +1,6 @@
 <!-- index.html -->
 <!doctype html>
-<html lang="es">
+<html lang="es" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,20 +9,25 @@
       content="Catálogo digital de animes y videojuegos - LobitosGames"
     />
     <title>LobitosGames - Catálogo de Animes y Videojuegos</title>
-    <!-- <link rel="stylesheet" href="css/carousel.css" /> -->
+    <!-- reCAPTCHA v2 -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <!-- Estilos -->
     <link rel="stylesheet" href="css/styles.css" />
     <link rel="stylesheet" href="css/auth.css" />
     <link rel="stylesheet" href="css/modal-actions.css" />
     <link rel="stylesheet" href="css/pagination.css" />
     <link rel="stylesheet" href="css/carousel.css" />
     <link rel="stylesheet" href="css/search-advanced.css" />
+    <link rel="stylesheet" href="css/theme.css" />
   </head>
   <body>
+    <!-- ═══════════════════════════════════════════ HEADER -->
     <header class="header">
       <div class="container">
         <div class="logo">
           <h1>LobitosGames</h1>
         </div>
+
         <nav class="nav">
           <button
             class="nav-btn active"
@@ -54,101 +59,152 @@
           >
             Mis Listas
           </button>
-        </nav>
-
-        <div class="auth-buttons" id="authButtons">
-          <button class="btn-login" onclick="authController.showLoginModal()">
-            Iniciar Sesión
+          <!-- Solo admin/editor -->
+          <button
+            class="nav-btn"
+            data-section="admin-panel"
+            id="adminNavBtn"
+            data-role="admin"
+            style="display: none"
+          >
+            Admin
           </button>
           <button
-            class="btn-register"
-            onclick="authController.showRegisterModal()"
+            class="nav-btn"
+            data-section="settings"
+            id="settingsBtn"
+            data-auth-only
+            style="display: none"
           >
-            Registrarse
+            Configuración
           </button>
-        </div>
+        </nav>
 
-        <div class="user-menu" id="userMenu" style="display: none">
-          <img src="" alt="Avatar" class="user-avatar" id="userAvatar" />
-          <span class="username" id="usernameDisplay"></span>
-          <button class="btn-logout" onclick="authController.handleLogout()">
-            Cerrar Sesión
-          </button>
+        <div class="header-right">
+          <!-- Switch tema oscuro/claro -->
+          <div class="theme-toggle" title="Cambiar tema">
+            <input
+              type="checkbox"
+              id="themeSwitch"
+              class="theme-switch-input"
+            />
+            <label
+              for="themeSwitch"
+              class="theme-switch-label"
+              aria-label="Cambiar tema"
+            >
+              <!-- Icono Sol (modo claro) -->
+              <svg
+                class="theme-icon theme-icon-sun"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </svg>
+              <span class="theme-slider"></span>
+              <!-- Icono Luna (modo oscuro) -->
+              <svg
+                class="theme-icon theme-icon-moon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            </label>
+          </div>
+
+          <!-- Botones sin sesión -->
+          <div class="auth-buttons" id="authButtons">
+            <button class="btn-login" onclick="authController.showLoginModal()">
+              Iniciar Sesión
+            </button>
+            <button
+              class="btn-register"
+              onclick="authController.showRegisterModal()"
+            >
+              Registrarse
+            </button>
+          </div>
+
+          <!-- Menú de usuario logueado -->
+          <div class="user-menu" id="userMenu" style="display: none">
+            <img src="" alt="Avatar" class="user-avatar" id="userAvatar" />
+            <span class="username" id="usernameDisplay"></span>
+            <span id="userRoleBadge" class="role-badge"></span>
+            <button class="btn-logout" onclick="authController.handleLogout()">
+              Cerrar Sesión
+            </button>
+          </div>
         </div>
       </div>
     </header>
 
-    <!-- Sección de búsqueda simple -->
-    <section class="search-section" id="searchSection">
+    <!-- ═══════════════════════════════════════════ BÚSQUEDA -->
+    <div id="searchSection" class="search-section">
       <div class="container">
         <div class="search-bar">
           <input
             type="text"
             id="searchInput"
             placeholder="Buscar por título..."
-            aria-label="Campo de búsqueda"
             minlength="2"
             maxlength="100"
+            aria-label="Buscar"
           />
-          <button class="search-btn" aria-label="Buscar">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="11" cy="11" r="8"></circle>
-              <path d="m21 21-4.35-4.35"></path>
-            </svg>
-          </button>
-          <button
-            class="btn-advanced-search"
-            onclick="searchController.toggleAdvancedSearch()"
-            aria-label="Búsqueda avanzada"
-          >
-            Filtros Avanzados
+          <button class="search-btn" aria-label="Buscar">🔍</button>
+          <button id="toggleFiltersBtn" class="btn-filters">
+            Filtros avanzados ▼
           </button>
         </div>
-
-        <!-- Panel de búsqueda avanzada -->
-        <div class="advanced-search-panel" id="advancedSearchPanel">
-          <h3>Búsqueda Avanzada</h3>
-          <div class="advanced-filters">
+        <div id="advancedFiltersPanel" class="advanced-filters-panel">
+          <div class="filters-grid">
             <div class="filter-group">
-              <label for="filterGenre">Género</label>
-              <select id="filterGenre" class="filter-select">
-                <option value="">Todos</option>
+              <label>Género</label>
+              <select id="filterGenre">
+                <option value="">Todos los géneros</option>
               </select>
             </div>
-
             <div class="filter-group">
-              <label for="filterYear">Año</label>
-              <div class="year-range">
-                <input
-                  type="number"
-                  id="filterYearMin"
-                  placeholder="Desde"
-                  min="1960"
-                  max="2026"
-                  class="filter-input"
-                />
-                <span>-</span>
-                <input
-                  type="number"
-                  id="filterYearMax"
-                  placeholder="Hasta"
-                  min="1960"
-                  max="2026"
-                  class="filter-input"
-                />
-              </div>
+              <label>Año desde</label>
+              <input
+                type="number"
+                id="filterYearMin"
+                placeholder="1960"
+                min="1960"
+                max="2026"
+              />
             </div>
-
             <div class="filter-group">
-              <label for="filterRating">Calificación Mínima</label>
+              <label>Año hasta</label>
+              <input
+                type="number"
+                id="filterYearMax"
+                placeholder="2026"
+                min="1960"
+                max="2026"
+              />
+            </div>
+            <div class="filter-group">
+              <label
+                >Calificación mínima:
+                <span id="filterRatingValue">0</span></label
+              >
               <input
                 type="range"
                 id="filterRating"
@@ -156,270 +212,297 @@
                 max="10"
                 step="0.1"
                 value="0"
-                class="filter-range"
               />
-              <span id="ratingValue">0.0</span>
             </div>
-
             <div class="filter-group">
-              <label for="filterSort">Ordenar por</label>
-              <select id="filterSort" class="filter-select">
+              <label>Ordenar por</label>
+              <select id="filterSort">
                 <option value="relevance">Relevancia</option>
                 <option value="rating">Calificación</option>
                 <option value="year">Año</option>
-                <option value="title">Título</option>
+                <option value="title">Título A-Z</option>
               </select>
             </div>
           </div>
-
-          <div class="filter-actions">
+          <div class="filters-actions">
             <button
-              class="btn-apply-filters"
+              class="btn-primary-sm"
               onclick="searchController.applyAdvancedFilters()"
             >
-              Aplicar Filtros
+              Aplicar filtros
             </button>
             <button
-              class="btn-reset-filters"
-              onclick="searchController.resetFilters()"
+              class="btn-secondary-sm"
+              onclick="searchController.clearFilters()"
             >
               Limpiar
             </button>
           </div>
         </div>
       </div>
-    </section>
+    </div>
 
-    <main class="main">
-      <!-- Sección de Inicio -->
-      <section id="home" class="section active">
-        <!-- Carrusel Hero -->
-        <div class="hero-carousel-section">
-          <div class="container">
-            <h2 class="carousel-title">Destacados de la Semana</h2>
-            <div class="carousel-container">
-              <button
-                class="carousel-btn prev"
-                id="carouselPrev"
-                aria-label="Anterior"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <polyline points="15 18 9 12 15 6"></polyline>
-                </svg>
-              </button>
-
-              <div class="carousel-track-container">
-                <div class="carousel-track" id="carouselTrack">
-                  <!-- Los slides se generarán dinámicamente -->
-                </div>
-              </div>
-
-              <button
-                class="carousel-btn next"
-                id="carouselNext"
-                aria-label="Siguiente"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <polyline points="9 18 15 12 9 6"></polyline>
-                </svg>
-              </button>
-            </div>
-
+    <!-- ═══════════════════════════════════════════ SECCIÓN HOME -->
+    <section id="home" class="section active">
+      <div class="container">
+        <div class="hero">
+          <div class="carousel-container">
+            <div class="carousel-track" id="carouselTrack"></div>
+            <button
+              class="carousel-btn carousel-prev"
+              id="carouselPrev"
+              aria-label="Anterior"
+            >
+              ‹
+            </button>
+            <button
+              class="carousel-btn carousel-next"
+              id="carouselNext"
+              aria-label="Siguiente"
+            >
+              ›
+            </button>
             <div class="carousel-indicators" id="carouselIndicators"></div>
           </div>
         </div>
-
-        <div class="container">
-          <div class="categories">
-            <div
-              class="category-card anime-category"
-              onclick="viewManager.showSection('animes')"
-            >
-              <div class="category-icon">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="48"
-                  height="48"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
-                  <polyline points="17 2 12 7 7 2"></polyline>
-                </svg>
-              </div>
-              <h3>Catálogo de Animes</h3>
-              <p>Explora nuestra colección de series anime</p>
-            </div>
-
-            <div
-              class="category-card game-category"
-              onclick="viewManager.showSection('games')"
-            >
-              <div class="category-icon">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="48"
-                  height="48"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <line x1="6" y1="12" x2="10" y2="12"></line>
-                  <line x1="8" y1="10" x2="8" y2="14"></line>
-                  <line x1="15" y1="13" x2="15.01" y2="13"></line>
-                  <line x1="18" y1="11" x2="18.01" y2="11"></line>
-                  <rect x="2" y="6" width="20" height="12" rx="2"></rect>
-                </svg>
-              </div>
-              <h3>Catálogo de Videojuegos</h3>
-              <p>Descubre los mejores videojuegos</p>
-            </div>
-          </div>
-
-          <div class="featured-section">
-            <h3 class="section-subtitle">Destacados</h3>
-            <div id="featuredContent" class="featured-grid"></div>
-          </div>
+        <h2 class="section-title">Contenido Destacado</h2>
+        <div id="featuredContent" class="catalog-grid">
+          <div class="loading"><p>Cargando contenido...</p></div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- Sección de Animes -->
-      <section id="animes" class="section">
-        <div class="container">
-          <div class="section-header">
-            <h2 class="section-title">Catálogo de Animes</h2>
-            <div class="filters">
-              <select
-                id="animeGenre"
-                class="filter-select"
-                aria-label="Filtrar por género"
-              >
-                <option value="">Todos los géneros</option>
-                <option value="Action">Acción</option>
-                <option value="Adventure">Aventura</option>
-                <option value="Drama">Drama</option>
-                <option value="Fantasy">Fantasía</option>
-                <option value="Comedy">Comedia</option>
-                <option value="Romance">Romance</option>
-                <option value="Sci-Fi">Ciencia Ficción</option>
-                <option value="Thriller">Thriller</option>
-              </select>
-            </div>
-          </div>
-          <div id="animeGrid" class="catalog-grid"></div>
-          <div class="pagination-container">
-            <div id="animePagination"></div>
-          </div>
+    <!-- ═══════════════════════════════════════════ SECCIÓN ANIMES -->
+    <section id="animes" class="section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Catálogo de Animes</h2>
+          <select
+            id="animeGenreFilter"
+            class="genre-filter"
+            onchange="animeController.filterByGenre(this.value)"
+          >
+            <option value="">Todos los géneros</option>
+          </select>
         </div>
-      </section>
-
-      <!-- Sección de Videojuegos -->
-      <section id="games" class="section">
-        <div class="container">
-          <div class="section-header">
-            <h2 class="section-title">Catálogo de Videojuegos</h2>
-            <div class="filters">
-              <select
-                id="gameGenre"
-                class="filter-select"
-                aria-label="Filtrar por género"
-              >
-                <option value="">Todos los géneros</option>
-                <option value="RPG">RPG</option>
-                <option value="Action">Acción</option>
-                <option value="Adventure">Aventura</option>
-                <option value="Shooter">Shooter</option>
-                <option value="Strategy">Estrategia</option>
-                <option value="Simulation">Simulación</option>
-                <option value="Puzzle">Puzzle</option>
-                <option value="Racing">Carreras</option>
-                <option value="Sports">Deportes</option>
-              </select>
-            </div>
-          </div>
-          <div id="gameGrid" class="catalog-grid"></div>
-          <div class="pagination-container">
-            <div id="gamePagination"></div>
-          </div>
+        <div id="animeGrid" class="catalog-grid">
+          <div class="loading"><p>Cargando animes...</p></div>
         </div>
-      </section>
+        <div id="animePaginationContainer" class="pagination-container"></div>
+      </div>
+    </section>
 
-      <!-- Sección de Mis Listas -->
-      <section id="my-lists" class="section">
-        <div class="container">
-          <h2 class="section-title">Mis Listas</h2>
-          <div class="lists-container">
-            <div class="list-section">
-              <h3 class="list-title">
-                <span class="list-icon">⭐</span> Favoritos
-              </h3>
-              <div id="favoritosList" class="list-grid"></div>
-            </div>
-            <div class="list-section">
-              <h3 class="list-title">
-                <span class="list-icon">👁️</span> Viendo / Jugando
-              </h3>
-              <div id="viendoJugandoList" class="list-grid"></div>
-            </div>
-            <div class="list-section">
-              <h3 class="list-title">
-                <span class="list-icon">🤔</span> Considerando
-              </h3>
-              <div id="considerandoList" class="list-grid"></div>
-            </div>
-            <div class="list-section">
-              <h3 class="list-title">
-                <span class="list-icon">✅</span> Completado
-              </h3>
-              <div id="completadoList" class="list-grid"></div>
-            </div>
-            <div class="list-section">
-              <h3 class="list-title">
-                <span class="list-icon">❌</span> Dropeado
-              </h3>
-              <div id="dropeadoList" class="list-grid"></div>
-            </div>
-          </div>
+    <!-- ═══════════════════════════════════════════ SECCIÓN VIDEOJUEGOS -->
+    <section id="games" class="section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Catálogo de Videojuegos</h2>
+          <select
+            id="gameGenreFilter"
+            class="genre-filter"
+            onchange="gameController.filterByGenre(this.value)"
+          >
+            <option value="">Todos los géneros</option>
+          </select>
         </div>
-      </section>
-    </main>
+        <div id="gameGrid" class="catalog-grid">
+          <div class="loading"><p>Cargando videojuegos...</p></div>
+        </div>
+        <div id="gamePaginationContainer" class="pagination-container"></div>
+      </div>
+    </section>
 
-    <!-- Modal de Detalles -->
-    <div
-      id="detailsModal"
-      class="modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modalTitle"
+    <!-- ═══════════════════════════════════════════ SECCIÓN MIS LISTAS -->
+    <section id="my-lists" class="section">
+      <div class="container">
+        <h2 class="section-title">Mis Listas</h2>
+        <div class="lists-tabs">
+          <button class="list-tab active" data-list="favoritos">
+            Favoritos
+          </button>
+          <button class="list-tab" data-list="viendo-jugando">
+            Viendo / Jugando
+          </button>
+          <button class="list-tab" data-list="considerando">
+            Considerando
+          </button>
+          <button class="list-tab" data-list="completado">Completado</button>
+          <button class="list-tab" data-list="dropeado">Dropeado</button>
+        </div>
+        <div id="favoritosList" class="list-content active catalog-grid"></div>
+        <div id="viendoJugandoList" class="list-content catalog-grid"></div>
+        <div id="considerandoList" class="list-content catalog-grid"></div>
+        <div id="completadoList" class="list-content catalog-grid"></div>
+        <div id="dropeadoList" class="list-content catalog-grid"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════ SECCIÓN CONFIGURACIÓN -->
+    <section id="settings" class="section">
+      <div class="container">
+        <h2 class="section-title">Configuración de cuenta</h2>
+
+        <!-- Cambiar contraseña -->
+        <div class="settings-card">
+          <h3>Cambiar contraseña</h3>
+          <form id="changePasswordForm">
+            <div class="form-group">
+              <label>Contraseña actual</label>
+              <input
+                type="password"
+                id="currentPassword"
+                required
+                placeholder="Contraseña actual"
+              />
+              <span class="error-message" id="currentPasswordError"></span>
+            </div>
+            <div class="form-group">
+              <label>Nueva contraseña</label>
+              <input
+                type="password"
+                id="newSettingsPassword"
+                required
+                placeholder="Mínimo 6 car., mayúscula y número"
+              />
+              <span class="error-message" id="newSettingsPasswordError"></span>
+            </div>
+            <div class="form-group">
+              <label>Confirmar nueva contraseña</label>
+              <input
+                type="password"
+                id="confirmSettingsPassword"
+                required
+                placeholder="Repetir contraseña"
+              />
+              <span
+                class="error-message"
+                id="confirmSettingsPasswordError"
+              ></span>
+            </div>
+            <button type="submit" class="btn-primary">
+              Cambiar contraseña
+            </button>
+          </form>
+        </div>
+
+        <!-- MFA -->
+        <div class="settings-card">
+          <h3>Autenticación multifactor (MFA)</h3>
+          <p>Estado actual: <strong id="mfaStatus">Desactivado</strong></p>
+          <p class="settings-hint">
+            Al activar MFA recibirás un código de 6 dígitos en tu email cada vez
+            que inicies sesión.
+          </p>
+          <button
+            id="toggleMfaBtn"
+            class="btn-secondary"
+            onclick="authController.handleToggleMfa()"
+          >
+            Activar MFA
+          </button>
+        </div>
+
+        <!-- Sesiones activas -->
+        <div class="settings-card">
+          <h3>Sesiones activas</h3>
+          <p class="settings-hint">
+            Puedes cerrar de forma remota cualquier sesión abierta en otro
+            dispositivo.
+          </p>
+          <div id="sessionsContainer"></div>
+          <button
+            class="btn-secondary"
+            onclick="authController.renderActiveSessions()"
+            style="margin-top: 12px"
+          >
+            Actualizar
+          </button>
+        </div>
+
+        <!-- Preferencias -->
+        <div class="settings-card">
+          <h3>Preferencias</h3>
+          <div class="form-group">
+            <label>Tema</label>
+            <select id="prefersTema">
+              <option value="dark">Oscuro</option>
+              <option value="light">Claro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Idioma</label>
+            <select id="prefersIdioma">
+              <option value="es">Español</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <button
+            class="btn-primary"
+            onclick="authController.savePreferences()"
+          >
+            Guardar preferencias
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════ SECCIÓN ADMIN -->
+    <section
+      id="admin-panel"
+      class="section"
+      data-role="admin"
+      style="display: none"
     >
+      <div class="container">
+        <h2 class="section-title">Panel de Administración</h2>
+        <div class="admin-grid">
+          <div class="admin-card">
+            <h3>Usuarios registrados</h3>
+            <div id="adminUsersList"></div>
+            <button
+              class="btn-secondary"
+              onclick="adminController.loadUsers()"
+              style="margin-top: 12px"
+            >
+              Cargar usuarios
+            </button>
+          </div>
+          <div class="admin-card">
+            <h3>Logs de seguridad</h3>
+            <div id="securityLogsList"></div>
+            <button
+              class="btn-secondary"
+              onclick="adminController.loadSecurityLogs()"
+              style="margin-top: 12px"
+            >
+              Ver logs
+            </button>
+          </div>
+          <div class="admin-card">
+            <h3>Sesiones activas del sistema</h3>
+            <div id="allSessionsList"></div>
+            <button
+              class="btn-secondary"
+              onclick="adminController.loadAllSessions()"
+              style="margin-top: 12px"
+            >
+              Cargar sesiones
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════ MODAL DETALLES -->
+    <div id="detailsModal" class="modal">
       <div class="modal-overlay" onclick="viewManager.closeModal()"></div>
       <div class="modal-content">
         <button
           class="modal-close"
+          id="detailsClose"
           onclick="viewManager.closeModal()"
-          aria-label="Cerrar modal"
         >
           <svg
-            xmlns="http://www.w3.org/2000/svg"
             width="24"
             height="24"
             viewBox="0 0 24 24"
@@ -435,7 +518,7 @@
       </div>
     </div>
 
-    <!-- Modal de Login con validaciones mejoradas -->
+    <!-- ═══════════════════════════════════════════ MODAL LOGIN -->
     <div id="loginModal" class="modal">
       <div
         class="modal-overlay"
@@ -455,7 +538,6 @@
               required
               minlength="3"
               maxlength="100"
-              pattern="^[a-zA-Z0-9@._-]+$"
               aria-describedby="loginEmailError"
             />
             <span class="error-message" id="loginEmailError"></span>
@@ -473,20 +555,14 @@
             <span class="error-message" id="loginPasswordError"></span>
           </div>
 
-          <!-- Verificación humana para login -->
-          <div class="form-group captcha-group">
-            <label>Verificación de seguridad *</label>
-            <div class="captcha-box">
-              <span id="loginCaptchaQuestion"></span>
-              <input
-                type="number"
-                id="loginCaptchaAnswer"
-                required
-                placeholder="Respuesta"
-                aria-describedby="loginCaptchaError"
-              />
-            </div>
-            <span class="error-message" id="loginCaptchaError"></span>
+          <!-- Google reCAPTCHA v2 -->
+          <div class="form-group recaptcha-group">
+            <div
+              class="g-recaptcha"
+              data-sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+              id="loginRecaptcha"
+            ></div>
+            <span class="error-message" id="loginRecaptchaError"></span>
           </div>
 
           <button type="submit" class="btn-primary">Iniciar Sesión</button>
@@ -498,15 +574,24 @@
                 authController.closeAuthModals();
                 authController.showRegisterModal();
               "
+              >Regístrate aquí</a
             >
-              Regístrate aquí
-            </a>
+          </p>
+          <p class="form-footer">
+            <a
+              href="#"
+              onclick="
+                authController.closeAuthModals();
+                authController.showResetModal();
+              "
+              >¿Olvidaste tu contraseña?</a
+            >
           </p>
         </form>
       </div>
     </div>
 
-    <!-- Modal de Registro con validaciones HTML5 completas -->
+    <!-- ═══════════════════════════════════════════ MODAL REGISTRO -->
     <div id="registerModal" class="modal">
       <div
         class="modal-overlay"
@@ -531,7 +616,6 @@
             />
             <span class="error-message" id="regNombreError"></span>
           </div>
-
           <div class="form-group">
             <label for="regApellido">Apellido *</label>
             <input
@@ -545,7 +629,6 @@
             />
             <span class="error-message" id="regApellidoError"></span>
           </div>
-
           <div class="form-group">
             <label for="regUsername">Nombre de Usuario *</label>
             <input
@@ -562,7 +645,6 @@
               >Solo letras, números, guiones y guiones bajos</small
             >
           </div>
-
           <div class="form-group">
             <label for="regEmail">Correo Electrónico *</label>
             <input
@@ -570,12 +652,10 @@
               id="regEmail"
               required
               maxlength="100"
-              pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
               aria-describedby="regEmailError"
             />
             <span class="error-message" id="regEmailError"></span>
           </div>
-
           <div class="form-group">
             <label for="regPassword">Contraseña *</label>
             <input
@@ -584,7 +664,6 @@
               required
               minlength="6"
               maxlength="50"
-              pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$"
               aria-describedby="regPasswordError"
             />
             <span class="error-message" id="regPasswordError"></span>
@@ -593,7 +672,6 @@
               número</small
             >
           </div>
-
           <div class="form-group">
             <label for="regConfirmPassword">Confirmar Contraseña *</label>
             <input
@@ -606,21 +684,35 @@
             />
             <span class="error-message" id="regConfirmPasswordError"></span>
           </div>
+          <!-- Pregunta secreta -->
+          <div class="form-group">
+            <label for="regSecretQuestion">Pregunta de seguridad</label>
+            <select id="regSecretQuestion">
+              <option value="">Selecciona una pregunta</option>
+              <option value="mascota">¿Nombre de tu primera mascota?</option>
+              <option value="ciudad">¿Ciudad donde naciste?</option>
+              <option value="escuela">¿Nombre de tu escuela primaria?</option>
+              <option value="madre">¿Apellido de soltera de tu madre?</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="regSecretAnswer">Respuesta secreta</label>
+            <input
+              type="text"
+              id="regSecretAnswer"
+              maxlength="100"
+              placeholder="Tu respuesta (se almacena cifrada)"
+            />
+          </div>
 
-          <!-- Verificación humana -->
-          <div class="form-group captcha-group">
-            <label>Verificación de seguridad *</label>
-            <div class="captcha-box">
-              <span id="registerCaptchaQuestion"></span>
-              <input
-                type="number"
-                id="registerCaptchaAnswer"
-                required
-                placeholder="Respuesta"
-                aria-describedby="registerCaptchaError"
-              />
-            </div>
-            <span class="error-message" id="registerCaptchaError"></span>
+          <!-- Google reCAPTCHA v2 -->
+          <div class="form-group recaptcha-group">
+            <div
+              class="g-recaptcha"
+              data-sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+              id="registerRecaptcha"
+            ></div>
+            <span class="error-message" id="registerRecaptchaError"></span>
           </div>
 
           <div class="form-group">
@@ -630,7 +722,6 @@
             </label>
             <span class="error-message" id="regTermsError"></span>
           </div>
-
           <button type="submit" class="btn-primary">Registrarse</button>
           <p class="form-footer">
             ¿Ya tienes cuenta?
@@ -640,14 +731,224 @@
                 authController.closeAuthModals();
                 authController.showLoginModal();
               "
+              >Inicia sesión aquí</a
             >
-              Inicia sesión aquí
-            </a>
           </p>
         </form>
       </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════ MODAL MFA -->
+    <div id="mfaModal" class="modal">
+      <div class="modal-overlay"></div>
+      <div class="modal-content auth-modal">
+        <h2>Verificación en dos pasos</h2>
+        <p>
+          Se envió un código de 6 dígitos a tu correo electrónico. Ingrésalo a
+          continuación.
+        </p>
+        <form id="mfaForm" onsubmit="return false;">
+          <div class="form-group">
+            <label>Código de verificación</label>
+            <input
+              type="number"
+              id="mfaCode"
+              required
+              placeholder="000000"
+              maxlength="6"
+              autocomplete="one-time-code"
+            />
+            <span class="error-message" id="mfaCodeError"></span>
+          </div>
+          <p class="settings-hint">
+            El código expira en 10 minutos. Revisa la consola del navegador
+            (demo).
+          </p>
+          <button type="submit" class="btn-primary">Verificar código</button>
+          <button
+            type="button"
+            class="btn-secondary"
+            onclick="authController.closeAuthModals()"
+            style="margin-top: 8px; width: 100%"
+          >
+            Cancelar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ MODAL RECUPERACIÓN CONTRASEÑA -->
+    <div id="resetModal" class="modal">
+      <div
+        class="modal-overlay"
+        onclick="authController.closeAuthModals()"
+      ></div>
+      <div class="modal-content auth-modal">
+        <button class="modal-close" onclick="authController.closeAuthModals()">
+          ×
+        </button>
+        <h2>Recuperar contraseña</h2>
+
+        <!-- Tabs de método -->
+        <div class="reset-tabs">
+          <button class="reset-tab active" data-tab="email-reset">Email</button>
+          <button class="reset-tab" data-tab="sms-reset">SMS</button>
+          <button class="reset-tab" data-tab="secret-reset">
+            Pregunta secreta
+          </button>
+        </div>
+
+        <!-- Email -->
+        <div id="email-reset" class="reset-tab-content active">
+          <div id="resetRequestSection">
+            <div class="form-group">
+              <label>Correo electrónico</label>
+              <input
+                type="email"
+                id="resetEmail"
+                required
+                placeholder="tu@email.com"
+              />
+              <span class="error-message" id="resetEmailError"></span>
+            </div>
+            <button
+              class="btn-primary"
+              onclick="authController.handleResetRequest()"
+            >
+              Enviar enlace
+            </button>
+          </div>
+          <div id="resetPasswordSection" style="display: none">
+            <p class="settings-hint">
+              Revisa la consola del navegador para obtener el token (demo).
+            </p>
+            <div class="form-group">
+              <label>Token de recuperación</label>
+              <input
+                type="text"
+                id="resetToken"
+                required
+                placeholder="Pega el token aquí"
+              />
+            </div>
+            <div class="form-group">
+              <label>Nueva contraseña</label>
+              <input type="password" id="newPassword" required />
+            </div>
+            <div class="form-group">
+              <label>Confirmar contraseña</label>
+              <input type="password" id="confirmNewPassword" required />
+              <span class="error-message" id="confirmNewPasswordError"></span>
+            </div>
+            <button
+              class="btn-primary"
+              onclick="authController.handleResetPassword()"
+            >
+              Cambiar contraseña
+            </button>
+          </div>
+        </div>
+
+        <!-- SMS -->
+        <div id="sms-reset" class="reset-tab-content">
+          <div class="form-group">
+            <label>Usuario o email</label>
+            <input
+              type="text"
+              id="smsResetUser"
+              placeholder="usuario o email"
+            />
+          </div>
+          <button
+            class="btn-primary"
+            onclick="authController.handleSmsResetRequest()"
+          >
+            Enviar OTP
+          </button>
+          <div id="smsVerifySection" style="display: none; margin-top: 16px">
+            <div class="form-group">
+              <label>Código OTP <small>(revisa la consola)</small></label>
+              <input type="number" id="smsOtpCode" placeholder="000000" />
+            </div>
+            <div class="form-group">
+              <label>Nueva contraseña</label>
+              <input type="password" id="smsNewPassword" />
+            </div>
+            <button
+              class="btn-primary"
+              onclick="authController.handleSmsVerify()"
+            >
+              Verificar y cambiar
+            </button>
+          </div>
+        </div>
+
+        <!-- Pregunta secreta -->
+        <div id="secret-reset" class="reset-tab-content">
+          <div class="form-group">
+            <label>Usuario o email</label>
+            <input type="text" id="secretUser" placeholder="usuario o email" />
+          </div>
+          <button
+            class="btn-secondary"
+            onclick="authController.loadSecretQuestion()"
+          >
+            Ver mi pregunta
+          </button>
+          <div
+            id="secretQuestionSection"
+            style="display: none; margin-top: 16px"
+          >
+            <p id="secretQuestionText" class="settings-hint"></p>
+            <div class="form-group">
+              <label>Tu respuesta</label>
+              <input type="text" id="secretAnswer" />
+            </div>
+            <div class="form-group">
+              <label>Nueva contraseña</label>
+              <input type="password" id="secretNewPassword" />
+            </div>
+            <button
+              class="btn-primary"
+              onclick="authController.handleSecretReset()"
+            >
+              Cambiar contraseña
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ MODAL SSO -->
+    <div id="ssoModal" class="modal">
+      <div
+        class="modal-overlay"
+        onclick="document.getElementById('ssoModal').classList.remove('active')"
+      ></div>
+      <div class="modal-content auth-modal">
+        <button
+          class="modal-close"
+          onclick="
+            document.getElementById('ssoModal').classList.remove('active')
+          "
+        >
+          ×
+        </button>
+        <h2>Single Sign-On — App B</h2>
+        <div id="ssoAppB" class="sso-app">
+          <p>Autenticando con App B...</p>
+        </div>
+        <button
+          class="btn-primary"
+          onclick="ssoController.openAppB()"
+          style="margin-top: 12px"
+        >
+          Abrir App B con SSO
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ FOOTER -->
     <footer class="footer">
       <div class="container">
         <div class="footer-content">
@@ -680,30 +981,45 @@
           </div>
         </div>
         <div class="footer-bottom">
-          <p>&copy; 2026 LobitosGames. Todos los derechos reservados.</p>
+          <p>© 2026 LobitosGames. Todos los derechos reservados.</p>
         </div>
       </div>
     </footer>
 
-    <!-- Scripts -->
-    <!-- Módulos Práctica 2 - deben cargarse antes que el resto -->
+    <!-- ═══════════════════════════════════════════ SCRIPTS
+         ORDEN OBLIGATORIO:
+         1. Módulos P2 (sin dependencias)
+         2. Services (validationService necesita existir antes de userModel)
+         3. Models
+         4. Middlewares (AuthMiddleware necesita userModel)
+         5. Controllers (authController necesita AuthMiddleware)
+         6. Views (viewManager necesita authController y AuthMiddleware)
+         7. app.js (inicializa todo)
+    -->
     <script src="js/cache.js"></script>
     <script src="js/animations.js"></script>
     <script src="js/dom.js"></script>
     <script src="js/api.js"></script>
     <script src="js/carousel.js"></script>
-    <!-- Scripts originales del proyecto -->
+
     <script src="js/services/apiService.js"></script>
     <script src="js/services/validationService.js"></script>
+
     <script src="js/models/userModel.js"></script>
     <script src="js/models/userListModel.js"></script>
     <script src="js/models/animeModel.js"></script>
     <script src="js/models/gameModel.js"></script>
+
+    <script src="js/middlewares/authMiddleware.js"></script>
+
     <script src="js/controllers/authController.js"></script>
+    <script src="js/controllers/adminController.js"></script>
+    <script src="js/controllers/ssoController.js"></script>
     <script src="js/controllers/searchController.js"></script>
     <script src="js/controllers/animeController.js"></script>
     <script src="js/controllers/gameController.js"></script>
     <script src="js/controllers/carouselController.js"></script>
+
     <script src="js/views/viewManager.js"></script>
     <script src="js/app.js"></script>
   </body>

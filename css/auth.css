@@ -1,391 +1,554 @@
-.auth-buttons {
-  display: flex;
-  gap: 15px;
+/* css/auth.css — Práctica 1 Unidad 3 */
+/* Estilos de autenticación, roles, settings, sesiones, MFA, SSO y admin */
+
+/* ── Variables ────────────────────────────────────────────── */
+:root {
+  --primary: #6809e5;
+  --primary-dark: #4a06a3;
+  --danger: #e74c3c;
+  --success: #27ae60;
+  --warning: #f39c12;
+  --text: #e0e0e0;
+  --text-muted: #888;
+  --bg-card: rgba(104, 9, 229, 0.08);
+  --bg-dark: #0d0d1a;
+  --border: rgba(104, 9, 229, 0.25);
+  --radius: 12px;
+}
+
+/* ── Modales base ─────────────────────────────────────────── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
   align-items: center;
+  justify-content: center;
 }
-
-.btn-login,
-.btn-register {
-  padding: 10px 20px;
-  border-radius: 5px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: none;
-}
-
-.btn-login {
-  background: transparent;
-  color: var(--text-primary);
-  border: 2px solid var(--primary-color);
-}
-
-.btn-login:hover {
-  background: var(--primary-color);
-  transform: translateY(-2px);
-}
-
-.btn-register {
-  background: var(--primary-color);
-  color: var(--text-primary);
-}
-
-.btn-register:hover {
-  background: var(--hover-color);
-  transform: translateY(-2px);
-}
-
-/* ==================== MENÚ DE USUARIO ==================== */
-.user-menu {
+.modal-overlay.active {
   display: flex;
-  align-items: center;
-  gap: 15px;
 }
 
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid var(--primary-color);
-  object-fit: cover;
+.modal-container {
+  background: #1a0533;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  animation: slideUp 0.3s ease;
 }
 
-.username {
-  color: var(--text-primary);
-  font-weight: 500;
-  font-size: 14px;
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.btn-logout {
-  padding: 8px 16px;
-  background: var(--secondary-color);
-  color: var(--text-primary);
+.modal-container h2 {
+  color: var(--primary);
+  margin-bottom: 1.2rem;
+  font-size: 1.4rem;
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
   border: none;
-  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 1.5rem;
   cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s ease;
+  line-height: 1;
+}
+.modal-close:hover {
+  color: var(--text);
 }
 
-.btn-logout:hover {
-  background: var(--primary-color);
-  transform: translateY(-2px);
-}
-
-/* ==================== MODALES DE AUTENTICACIÓN ==================== */
-.auth-modal {
-  max-width: 450px;
-  padding: 40px;
-}
-
-.auth-modal h2 {
-  color: var(--text-primary);
-  margin-bottom: 30px;
-  text-align: center;
-  font-size: 28px;
-}
-
+/* ── Formularios ──────────────────────────────────────────── */
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 1rem;
 }
-
 .form-group label {
   display: block;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
 }
-
-.form-group input {
+.form-group input,
+.form-group select {
   width: 100%;
-  padding: 12px 15px;
-  background: var(--dark-bg);
-  border: 2px solid var(--text-secondary);
-  border-radius: 5px;
-  color: var(--text-primary);
-  font-size: 14px;
-  transition: all 0.3s ease;
+  padding: 0.65rem 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+  transition: border 0.2s;
 }
-
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
   outline: none;
-  border-color: var(--primary-color);
-  background: rgba(104, 9, 229, 0.1);
+  border-color: var(--primary);
+}
+.form-group input.error {
+  border-color: var(--danger);
 }
 
+.error-message {
+  display: none;
+  color: var(--danger);
+  font-size: 0.78rem;
+  margin-top: 0.3rem;
+}
+
+/* ── Botones ──────────────────────────────────────────────── */
 .btn-primary {
-  width: 100%;
-  padding: 14px;
-  background: var(--primary-color);
-  color: var(--text-primary);
+  background: var(--primary);
+  color: #fff;
   border: none;
-  border-radius: 5px;
-  font-size: 16px;
-  font-weight: 600;
+  padding: 0.7rem 1.4rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  margin-top: 10px;
+  transition:
+    background 0.2s,
+    transform 0.15s;
+  width: 100%;
+  margin-top: 0.5rem;
 }
-
 .btn-primary:hover {
-  background: var(--hover-color);
-  transform: translateY(-2px);
-  box-shadow: 0 5px 20px rgba(104, 9, 229, 0.4);
+  background: var(--primary-dark);
+  transform: translateY(-1px);
 }
 
-.form-footer {
-  text-align: center;
-  margin-top: 20px;
-  color: var(--text-secondary);
-  font-size: 14px;
+.btn-secondary {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 0.5rem;
+}
+.btn-secondary:hover {
+  background: var(--primary);
+  color: #fff;
 }
 
-.form-footer a {
-  color: var(--primary-color);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.3s ease;
-}
-
-.form-footer a:hover {
-  color: var(--hover-color);
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 0.5rem;
   text-decoration: underline;
 }
 
-/* ==================== NOTIFICACIONES ==================== */
-.notification {
-  position: fixed;
-  top: 100px;
-  right: 20px;
-  padding: 15px 20px;
-  background: var(--card-bg);
-  border-left: 4px solid var(--primary-color);
-  border-radius: 5px;
-  color: var(--text-primary);
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
-  z-index: 3000;
-  opacity: 0;
-  transform: translateX(400px);
-  transition: all 0.3s ease;
-  max-width: 350px;
-}
-
-.notification.show {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.notification-success {
-  border-left-color: #10b981;
-}
-
-.notification-error {
-  border-left-color: #ef4444;
-}
-
-.notification-info {
-  border-left-color: #3b82f6;
-}
-
-/* ==================== SECCIÓN DE MIS LISTAS ==================== */
-.lists-container {
-  display: grid;
-  gap: 40px;
-}
-
-.list-section {
-  background: var(--card-bg);
-  padding: 30px;
-  border-radius: 15px;
-  border: 2px solid transparent;
-  transition: all 0.3s ease;
-}
-
-.list-section:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 5px 20px rgba(104, 9, 229, 0.3);
-}
-
-.list-title {
-  color: var(--text-primary);
-  font-size: 24px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.list-icon {
-  font-size: 28px;
-}
-
-.list-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-  min-height: 100px;
-}
-
-.list-empty {
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 40px;
-  color: var(--text-secondary);
-  font-size: 16px;
-}
-
-/* ==================== BOTONES DE ACCIÓN EN ITEMS ==================== */
-.item-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.btn-add-list {
-  background: var(--primary-color);
-  color: var(--text-primary);
+.btn-danger-sm {
+  background: var(--danger);
+  color: #fff;
   border: none;
-  padding: 10px 16px;
-  border-radius: 5px;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 5px;
 }
 
-.btn-add-list:hover {
-  background: var(--hover-color);
-  transform: scale(1.05);
-}
-
-.btn-in-list {
-  background: #10b981;
-  cursor: default;
-}
-
-.btn-in-list:hover {
-  transform: scale(1);
-}
-
-/* Dropdown para seleccionar lista */
-.list-dropdown {
-  position: relative;
+/* ── Role badges ──────────────────────────────────────────── */
+.role-badge {
   display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.role-admin {
+  background: #ffd700;
+  color: #000;
+}
+.role-editor {
+  background: #2980b9;
+  color: #fff;
+}
+.role-usuario {
+  background: #27ae60;
+  color: #fff;
 }
 
-.dropdown-content {
-  display: none;
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  background: var(--card-bg);
-  min-width: 180px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+/* ── Settings cards ───────────────────────────────────────── */
+.settings-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.settings-card h3 {
+  color: var(--primary);
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+.settings-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.8rem;
+}
+
+/* ── Sesiones activas ─────────────────────────────────────── */
+.session-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  z-index: 1000;
-  border: 2px solid var(--primary-color);
-  overflow: hidden;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.session-item.current-session {
+  border-color: var(--primary);
+}
+.session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.session-device {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.session-agent,
+.session-ip,
+.session-date {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.session-badge {
+  background: var(--primary);
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.btn-revoke-session {
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  padding: 0.35rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-.list-dropdown:hover .dropdown-content {
+/* ── Admin panel ──────────────────────────────────────────── */
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+.admin-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+.admin-card h3 {
+  color: var(--primary);
+  margin-bottom: 1rem;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  overflow-x: auto;
+  display: block;
+}
+.admin-table th {
+  background: rgba(104, 9, 229, 0.2);
+  color: var(--primary);
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.admin-table td {
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.admin-table tr:hover td {
+  background: rgba(104, 9, 229, 0.05);
+}
+
+/* ── Log events ───────────────────────────────────────────── */
+.log-event {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.log-login_success {
+  background: rgba(39, 174, 96, 0.2);
+  color: #27ae60;
+}
+.log-login_failed {
+  background: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+.log-brute_force {
+  background: rgba(231, 76, 60, 0.4);
+  color: #e74c3c;
+  font-weight: 700;
+}
+.log-mfa_failed {
+  background: rgba(243, 156, 18, 0.2);
+  color: #f39c12;
+}
+.log-session_revoked {
+  background: rgba(41, 128, 185, 0.2);
+  color: #2980b9;
+}
+
+/* ── MFA ──────────────────────────────────────────────────── */
+.mfa-hint {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0.5rem 0;
+}
+
+/* ── Reset tabs ───────────────────────────────────────────── */
+.reset-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.reset-tab {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+.reset-tab.active,
+.reset-tab:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.reset-tab-content {
+  display: none;
+}
+.reset-tab-content.active {
   display: block;
 }
 
-.dropdown-content button {
-  width: 100%;
-  padding: 12px 16px;
-  background: transparent;
-  color: var(--text-primary);
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.dropdown-content button:hover {
-  background: var(--primary-color);
-}
-
-/* ==================== ESTADÍSTICAS DE USUARIO ==================== */
-.user-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 20px;
-  margin-bottom: 40px;
-}
-
-.stat-card {
-  background: linear-gradient(
-    135deg,
-    var(--primary-color),
-    var(--secondary-color)
-  );
-  padding: 20px;
+/* ── SSO ──────────────────────────────────────────────────── */
+.sso-app {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  text-align: center;
+  padding: 1.2rem;
+  margin-bottom: 1rem;
+}
+.sso-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.sso-logo {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 1.05rem;
+}
+.sso-user {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.sso-success p {
+  font-size: 0.88rem;
+  margin: 0.3rem 0;
+}
+.sso-success code {
+  background: rgba(104, 9, 229, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.sso-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.sso-app-content {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
 }
 
-.stat-number {
-  font-size: 32px;
-  font-weight: bold;
-  color: var(--text-primary);
-  margin-bottom: 5px;
+/* ── Toast messages ───────────────────────────────────────── */
+.toast-message {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  padding: 0.8rem 1.4rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #fff;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.35s ease;
+  max-width: 340px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+.toast-message.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.toast-message.success {
+  background: var(--success);
+}
+.toast-message.error {
+  background: var(--danger);
+}
+.toast-message.info {
+  background: var(--primary);
+}
+.toast-message.warning {
+  background: var(--warning);
+  color: #000;
 }
 
-.stat-label {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+/* ── Auth header buttons ──────────────────────────────────── */
+.btn-login,
+.btn-register {
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-login {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+}
+.btn-login:hover {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-register {
+  background: var(--primary);
+  border: none;
+  color: #fff;
+}
+.btn-register:hover {
+  background: var(--primary-dark);
+}
+.btn-logout {
+  background: var(--danger);
+  border: none;
+  color: #fff;
+  padding: 0.4rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
 }
 
-/* ==================== RESPONSIVE ==================== */
-@media (max-width: 768px) {
-  .auth-buttons {
-    flex-direction: column;
-    width: 100%;
-    gap: 10px;
-  }
-
-  .btn-login,
-  .btn-register {
-    width: 100%;
-  }
-
-  .user-menu {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .auth-modal {
-    padding: 30px 20px;
-  }
-
-  .notification {
-    right: 10px;
-    left: 10px;
-    max-width: none;
-  }
-
-  .list-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  }
-
-  .user-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
+/* ── User menu ────────────────────────────────────────────── */
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--primary);
+  object-fit: cover;
+}
+.username {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
-@media (max-width: 480px) {
-  .list-title {
-    font-size: 20px;
-  }
+/* ── Captcha ──────────────────────────────────────────────── */
+.captcha-box {
+  background: rgba(104, 9, 229, 0.1);
+  border: 1px dashed var(--primary);
+  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.captcha-box span {
+  font-weight: 600;
+  color: var(--text);
+}
+.captcha-box input {
+  flex: 1;
+  min-width: 80px;
+  background: rgba(255, 255, 255, 0.06);
+}
 
-  .list-grid {
+/* ── No sessions placeholder ──────────────────────────────── */
+.no-sessions {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Section title ────────────────────────────────────────── */
+.section-title {
+  font-size: 1.6rem;
+  color: var(--primary);
+  margin-bottom: 1.5rem;
+}
+.section-desc {
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .modal-container {
+    padding: 1.4rem;
+  }
+  .admin-grid {
     grid-template-columns: 1fr;
+  }
+  .session-item {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

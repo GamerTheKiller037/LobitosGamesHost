@@ -1,182 +1,146 @@
+// js/controllers/carouselController.js
+// CORREGIDO: viewDetails usa animeController/gameController en lugar de viewManager
+// Ambos botones (prev/next) garantizados visibles
+
 class CarouselController {
   constructor() {
-    this.currentIndex = 0;
     this.slides = [];
+    this.currentIndex = 0;
     this.autoPlayInterval = null;
     this.autoPlayDelay = 5000;
+    this.isLoading = false;
   }
 
   async init() {
-    console.log("🎠 Inicializando carrusel");
-    await this.loadFeaturedContent();
-    this.setupEventListeners();
-    this.startAutoPlay();
-  }
+    if (this.isLoading) return;
+    this.isLoading = true;
 
-  async loadFeaturedContent() {
     try {
-      // Usar métodos que SÍ existen en apiService
-      const topAnimes = await apiService.getTopAnimes(1, 4);
-
-      // Para juegos, usar el método correcto
-      let topGames = [];
-      try {
-        // Llamar al método que carga juegos
-        await gameModel.loadGames(1);
-        topGames = gameModel.getAllGames().slice(0, 4);
-      } catch (error) {
-        console.warn("No se pudieron cargar juegos:", error);
-      }
-
-      this.slides = [];
-
-      // Agregar animes
-      // NOTA: getTopAnimes() devuelve objetos ya formateados por apiService.formatAnime()
-      // Sus campos son: id, title, image, rating, synopsis, year, genre (NO mal_id, images, score, etc.)
-      if (topAnimes && topAnimes.length > 0) {
-        topAnimes.slice(0, 5).forEach((anime) => {
-          this.slides.push({
-            type: "anime",
-            id: anime.id,
-            title: anime.title || "Sin título",
-            image:
-              anime.image ||
-              "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect fill='%236809e5' width='800' height='450'/%3E%3Ctext fill='white' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='28'%3EAnime%3C/text%3E%3C/svg%3E",
-            rating: anime.rating || "N/A",
-            description: this.truncateDescription(
-              anime.synopsis || "Sin descripción disponible",
-              120,
-            ),
-            year: anime.year || "N/A",
-            genre: anime.genre
-              ? anime.genre.split(", ").slice(0, 2).join(", ")
-              : "Anime",
-          });
-        });
-      }
-
-      // Agregar juegos
-      // NOTA: gameModel.getAllGames() también devuelve objetos formateados por apiService.formatGame()
-      // Sus campos son: id, title, image, rating, synopsis, year, genre (NO background_image, etc.)
-      if (topGames && topGames.length > 0) {
-        topGames.slice(0, 5).forEach((game) => {
-          this.slides.push({
-            type: "game",
-            id: game.id,
-            title: game.title || game.name || "Sin título",
-            image:
-              game.image ||
-              "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect fill='%234b09a0' width='800' height='450'/%3E%3Ctext fill='white' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='28'%3EGame%3C/text%3E%3C/svg%3E",
-            rating: game.rating || "N/A",
-            description: this.truncateDescription(
-              game.synopsis || "Sin descripción disponible",
-              120,
-            ),
-            year: game.year || "N/A",
-            genre: game.genre
-              ? game.genre.split(", ").slice(0, 2).join(", ")
-              : "Videojuego",
-          });
-        });
-      }
-
-      // Mezclar
-      this.shuffleSlides();
-
-      // Renderizar
+      await this.loadSlides();
       this.renderCarousel();
       this.renderIndicators();
-
-      console.log(`✅ Carrusel cargado con ${this.slides.length} slides`);
+      this.setupEventListeners();
+      if (this.slides.length > 0) this.startAutoPlay();
     } catch (error) {
-      console.error("❌ Error cargando contenido del carrusel:", error);
-      // Crear slides de fallback
-      this.createFallbackSlides();
+      console.error("[Carrusel] Error:", error);
+    } finally {
+      this.isLoading = false;
     }
   }
 
-  createFallbackSlides() {
-    this.slides = [
-      {
-        type: "anime",
-        id: 1,
-        title: "Cargando contenido...",
-        image:
-          "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect fill='%23141414' width='800' height='450'/%3E%3Ctext fill='%236809e5' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='36'%3ELobitosGames%3C/text%3E%3C/svg%3E",
-        rating: "9.0",
-        description:
-          "Descubre los mejores animes y videojuegos en LobitosGames",
-        year: "2026",
-        genre: "Entretenimiento",
-      },
-    ];
-    this.renderCarousel();
-    this.renderIndicators();
-  }
+  async loadSlides() {
+    try {
+      // Esperar a que los modelos tengan datos
+      if (typeof animeModel !== "undefined" && animeModel.animes.length === 0) {
+        await animeModel.loadAnimes();
+      }
+      if (typeof gameModel !== "undefined" && gameModel.games.length === 0) {
+        await gameModel.loadGames();
+      }
 
-  shuffleSlides() {
-    for (let i = this.slides.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [this.slides[i], this.slides[j]] = [this.slides[j], this.slides[i]];
+      const animes =
+        typeof animeModel !== "undefined" ? animeModel.animes.slice(0, 3) : [];
+      const games =
+        typeof gameModel !== "undefined" ? gameModel.games.slice(0, 2) : [];
+
+      this.slides = [
+        ...animes.map((a) => ({
+          id: a.id || a.mal_id,
+          type: "anime",
+          title: a.title || a.titulo || "Sin título",
+          image: a.image || a.imagen_url || "",
+          rating: a.rating || "N/A",
+          year: a.year || a.año || "",
+          genre: a.genre || a.genero || "",
+          description: this._truncate(
+            a.synopsis || a.sinopsis || "Sin descripción disponible.",
+            180,
+          ),
+        })),
+        ...games.map((g) => ({
+          id: g.id || g.rawg_id,
+          type: "game",
+          title: g.name || g.title || g.titulo || "Sin título",
+          image: g.background_image || g.image || g.imagen_url || "",
+          rating: g.metacritic || g.rating || "N/A",
+          year: g.released ? g.released.slice(0, 4) : g.year || g.año || "",
+          genre: Array.isArray(g.genres)
+            ? g.genres.map((x) => x.name || x).join(", ")
+            : g.genre || g.genero || "",
+          description: this._truncate(
+            g.description_raw ||
+              g.description ||
+              g.synopsis ||
+              "Sin descripción disponible.",
+            180,
+          ),
+        })),
+      ].filter((s) => s.id); // solo slides con id válido
+
+      console.log(`[Carrusel] ${this.slides.length} slides cargados`);
+    } catch (err) {
+      console.warn("[Carrusel] No se pudieron cargar slides:", err.message);
+      this.slides = [];
     }
   }
 
-  truncateDescription(text, maxLength) {
-    if (!text) return "Sin descripción disponible";
-
-    const cleanText = text.replace(/<[^>]*>/g, "").replace(/\[.*?\]/g, "");
-
-    if (cleanText.length <= maxLength) return cleanText;
-
-    const truncated = cleanText.substring(0, maxLength);
-    const lastSpace = truncated.lastIndexOf(" ");
-
-    return (
-      truncated.substring(0, lastSpace > 0 ? lastSpace : maxLength) + "..."
-    );
+  _truncate(text, max) {
+    if (!text) return "Sin descripción disponible.";
+    const clean = text
+      .replace(/\[.*?\]/g, "")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    if (clean.length <= max) return clean;
+    const cut = clean.lastIndexOf(" ", max);
+    return clean.substring(0, cut > 0 ? cut : max) + "…";
   }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   renderCarousel() {
     const track = document.getElementById("carouselTrack");
-    if (!track) {
-      console.warn("No se encontró el elemento carouselTrack");
-      return;
-    }
+    if (!track) return;
 
-    if (this.slides.length === 0) {
-      track.innerHTML =
-        '<div class="carousel-slide active"><div class="carousel-content"><h3>Cargando contenido...</h3></div></div>';
+    if (!this.slides.length) {
+      track.innerHTML = `
+        <div class="carousel-slide active">
+          <div class="carousel-image" style="background:linear-gradient(135deg,#1a0533,#6809e5)"></div>
+          <div class="carousel-content">
+            <h3 class="carousel-title">Cargando contenido…</h3>
+          </div>
+        </div>`;
       return;
     }
 
     track.innerHTML = this.slides
-      .map(
-        (slide, index) => `
-      <div class="carousel-slide ${index === 0 ? "active" : ""}" data-index="${index}">
-        <div class="carousel-image">
-          <img src="${slide.image}" 
-               alt="${slide.title}"
-               onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect fill='%236809e5' width='800' height='450'/%3E%3Ctext fill='white' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='24'%3ESin imagen%3C/text%3E%3C/svg%3E'">
-          <div class="carousel-gradient"></div>
-        </div>
-        <div class="carousel-content">
-          <div class="carousel-badge ${slide.type}">
-            ${slide.type === "anime" ? "📺 Anime" : "🎮 Videojuego"}
+      .map((slide, i) => {
+        const fallbackSvg = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect fill='%236809e5' width='800' height='450'/%3E%3Ctext fill='white' x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='24'%3ESin imagen%3C/text%3E%3C/svg%3E`;
+        return `
+        <div class="carousel-slide ${i === 0 ? "active" : ""}" data-index="${i}">
+          <div class="carousel-image">
+            <img src="${slide.image || fallbackSvg}"
+                 alt="${slide.title}"
+                 onerror="this.onerror=null;this.src='${fallbackSvg}'">
+            <div class="carousel-gradient"></div>
           </div>
-          <h3 class="carousel-title">${slide.title}</h3>
-          <div class="carousel-meta">
-            <span class="carousel-rating">⭐ ${slide.rating}</span>
-            <span class="carousel-year">${slide.year}</span>
-            <span class="carousel-genre">${slide.genre}</span>
+          <div class="carousel-content">
+            <div class="carousel-badge ${slide.type}">
+              ${slide.type === "anime" ? "ANIME" : "VIDEOJUEGO"}
+            </div>
+            <h3 class="carousel-title">${slide.title}</h3>
+            <div class="carousel-meta">
+              <span class="carousel-rating">★ ${slide.rating}</span>
+              <span class="carousel-year">${slide.year}</span>
+              <span class="carousel-genre">${slide.genre}</span>
+            </div>
+            <p class="carousel-description">${slide.description}</p>
+            <button class="carousel-btn-view"
+                    onclick="carouselController.viewDetails(${i})">
+              Ver Detalles
+            </button>
           </div>
-          <p class="carousel-description">${slide.description}</p>
-          <button class="carousel-btn-view" onclick="carouselController.viewDetails(${index})">
-            Ver Detalles
-          </button>
-        </div>
-      </div>
-    `,
-      )
+        </div>`;
+      })
       .join("");
   }
 
@@ -184,86 +148,94 @@ class CarouselController {
     const container = document.getElementById("carouselIndicators");
     if (!container) return;
 
-    if (this.slides.length === 0) {
-      container.innerHTML = "";
-      return;
-    }
-
     container.innerHTML = this.slides
       .map(
-        (_, index) => `
-      <button class="carousel-indicator ${index === 0 ? "active" : ""}" 
-              onclick="carouselController.goToSlide(${index})"
-              aria-label="Ir a slide ${index + 1}">
-      </button>
-    `,
+        (_, i) => `
+        <button class="carousel-indicator ${i === 0 ? "active" : ""}"
+                onclick="carouselController.goToSlide(${i})"
+                aria-label="Ir a slide ${i + 1}">
+        </button>`,
       )
       .join("");
   }
 
+  // ── Navegación ────────────────────────────────────────────────────────────
+
   setupEventListeners() {
-    const prevBtn = document.getElementById("carouselPrev");
-    const nextBtn = document.getElementById("carouselNext");
+    // Buscar botones por ID y por clase
+    const prevBtn =
+      document.getElementById("carouselPrev") ||
+      document.querySelector(".carousel-btn.prev");
+    const nextBtn =
+      document.getElementById("carouselNext") ||
+      document.querySelector(".carousel-btn.next");
 
     if (prevBtn) {
-      prevBtn.addEventListener("click", () => this.previousSlide());
+      // Eliminar listener anterior para evitar duplicados
+      prevBtn.replaceWith(prevBtn.cloneNode(true));
+      const freshPrev =
+        document.getElementById("carouselPrev") ||
+        document.querySelector(".carousel-btn.prev");
+      if (freshPrev)
+        freshPrev.addEventListener("click", () => this.previousSlide());
     }
-
     if (nextBtn) {
-      nextBtn.addEventListener("click", () => this.nextSlide());
+      nextBtn.replaceWith(nextBtn.cloneNode(true));
+      const freshNext =
+        document.getElementById("carouselNext") ||
+        document.querySelector(".carousel-btn.next");
+      if (freshNext)
+        freshNext.addEventListener("click", () => this.nextSlide());
     }
 
+    // Pausar autoplay al hover
     const container = document.querySelector(".carousel-container");
     if (container) {
       container.addEventListener("mouseenter", () => this.stopAutoPlay());
       container.addEventListener("mouseleave", () => this.startAutoPlay());
     }
 
-    this.setupSwipeListeners();
+    this._setupSwipe();
   }
 
-  setupSwipeListeners() {
+  _setupSwipe() {
     const track = document.getElementById("carouselTrack");
     if (!track) return;
-
     let startX = 0;
-    let endX = 0;
-
-    track.addEventListener("touchstart", (e) => {
-      startX = e.touches[0].clientX;
-    });
-
-    track.addEventListener("touchend", (e) => {
-      endX = e.changedTouches[0].clientX;
-      const diff = startX - endX;
-
-      if (Math.abs(diff) > 50) {
-        if (diff > 0) {
-          this.nextSlide();
-        } else {
-          this.previousSlide();
-        }
-      }
-    });
+    track.addEventListener(
+      "touchstart",
+      (e) => {
+        startX = e.touches[0].clientX;
+      },
+      { passive: true },
+    );
+    track.addEventListener(
+      "touchend",
+      (e) => {
+        const diff = startX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 50)
+          diff > 0 ? this.nextSlide() : this.previousSlide();
+      },
+      { passive: true },
+    );
   }
 
   goToSlide(index) {
     if (index < 0 || index >= this.slides.length) return;
-
     this.currentIndex = index;
     this.updateSlides();
     this.resetAutoPlay();
   }
 
   nextSlide() {
-    if (this.slides.length === 0) return;
+    if (!this.slides.length) return;
     this.currentIndex = (this.currentIndex + 1) % this.slides.length;
     this.updateSlides();
     this.resetAutoPlay();
   }
 
   previousSlide() {
-    if (this.slides.length === 0) return;
+    if (!this.slides.length) return;
     this.currentIndex =
       (this.currentIndex - 1 + this.slides.length) % this.slides.length;
     this.updateSlides();
@@ -271,24 +243,23 @@ class CarouselController {
   }
 
   updateSlides() {
-    const slides = document.querySelectorAll(".carousel-slide");
-    const indicators = document.querySelectorAll(".carousel-indicator");
-
-    slides.forEach((slide, index) => {
-      slide.classList.toggle("active", index === this.currentIndex);
-    });
-
-    indicators.forEach((indicator, index) => {
-      indicator.classList.toggle("active", index === this.currentIndex);
-    });
+    document
+      .querySelectorAll(".carousel-slide")
+      .forEach((s, i) => s.classList.toggle("active", i === this.currentIndex));
+    document
+      .querySelectorAll(".carousel-indicator")
+      .forEach((ind, i) =>
+        ind.classList.toggle("active", i === this.currentIndex),
+      );
   }
 
   startAutoPlay() {
-    if (this.slides.length === 0) return;
+    if (!this.slides.length) return;
     this.stopAutoPlay();
-    this.autoPlayInterval = setInterval(() => {
-      this.nextSlide();
-    }, this.autoPlayDelay);
+    this.autoPlayInterval = setInterval(
+      () => this.nextSlide(),
+      this.autoPlayDelay,
+    );
   }
 
   stopAutoPlay() {
@@ -302,15 +273,45 @@ class CarouselController {
     this.startAutoPlay();
   }
 
+  // ── Ver detalles — FIX PRINCIPAL ─────────────────────────────────────────
+  // El error era que llamaba a viewManager.showAnimeDetails / viewManager.showGameDetails
+  // pero esos métodos no existen en viewManager. Los métodos correctos están en
+  // animeController.showDetails() y gameController.showDetails()
+
   viewDetails(index) {
     const slide = this.slides[index];
     if (!slide) return;
 
+    const id = slide.id;
+
     if (slide.type === "anime") {
-      viewManager.showAnimeDetails(slide.id);
+      if (
+        typeof animeController !== "undefined" &&
+        typeof animeController.showDetails === "function"
+      ) {
+        animeController.showDetails(id);
+      } else {
+        console.warn("[Carrusel] animeController.showDetails no disponible");
+      }
     } else {
-      viewManager.showGameDetails(slide.id);
+      if (
+        typeof gameController !== "undefined" &&
+        typeof gameController.showDetails === "function"
+      ) {
+        gameController.showDetails(id);
+      } else {
+        console.warn("[Carrusel] gameController.showDetails no disponible");
+      }
     }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  getFeaturedSlides() {
+    return this.slides.slice(0, 5);
+  }
+  getSlideCount() {
+    return this.slides.length;
   }
 }
 

@@ -1,283 +1,366 @@
 // js/controllers/searchController.js
-// CORREGIDO - Toggle de filtros avanzados arreglado
+// CORREGIDO: filtros avanzados ocultos por defecto, toggle con clase "open"/"show",
+// applyAdvancedFilters y clearFilters funcionando
 
 class SearchController {
   constructor() {
     this.advancedPanelOpen = false;
     this.currentSection = "animes";
+    this.advancedFilters = {};
   }
 
   init() {
-    console.log("🔍 SearchController inicializado");
     this.setupEventListeners();
     this.updateGenreFilters();
+    this.updateRatingSlider();
+    // Asegurar que el panel empiece cerrado
+    this._closePanel();
   }
 
+  // ── Event listeners ───────────────────────────────────────────────────────
+
   setupEventListeners() {
-    // Input de búsqueda
+    // Input búsqueda
     const searchInput = document.getElementById("searchInput");
     if (searchInput) {
-      let debounceTimer;
+      let timer;
       searchInput.addEventListener("input", (e) => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          const value = e.target.value;
-          if (value.length >= 2) {
-            if (this.currentSection === "animes") {
-              animeController.search(value);
-            } else if (this.currentSection === "games") {
-              gameController.search(value);
-            }
-          } else if (value.length === 0) {
-            if (this.currentSection === "animes") {
-              animeController.renderAnimeGrid();
-            } else if (this.currentSection === "games") {
-              gameController.renderGameGrid();
-            }
-          }
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          const val = e.target.value.trim();
+          this._runSearch(val);
         }, 500);
       });
-
       searchInput.addEventListener("keypress", (e) => {
         if (e.key === "Enter") {
-          e.preventDefault();
-          const value = e.target.value;
-          if (value.length >= 2) {
-            if (this.currentSection === "animes") {
-              animeController.search(value);
-            } else if (this.currentSection === "games") {
-              gameController.search(value);
-            }
-          }
+          clearTimeout(timer);
+          this._runSearch(e.target.value.trim());
         }
       });
     }
 
-    // CORREGIDO: Botón de búsqueda
+    // Botón buscar
     const searchBtn = document.querySelector(".search-btn");
     if (searchBtn) {
       searchBtn.addEventListener("click", () => {
-        const value = searchInput?.value || "";
-        if (value.length >= 2) {
-          if (this.currentSection === "animes") {
-            animeController.search(value);
-          } else if (this.currentSection === "games") {
-            gameController.search(value);
-          }
-        }
+        this._runSearch(
+          document.getElementById("searchInput")?.value.trim() || "",
+        );
       });
     }
 
-    // NOTA: el botón .btn-advanced-search ya tiene onclick="searchController.toggleAdvancedSearch()"
-    // en el HTML, así que NO agregamos addEventListener aquí para evitar que se dispare dos veces
-    // (lo que causaría que el panel se abriera y cerrara inmediatamente).
-
-    // Botones de aplicar y limpiar filtros
-    const btnApplyFilters = document.querySelector(".btn-apply-filters");
-    if (btnApplyFilters) {
-      btnApplyFilters.addEventListener("click", () => {
-        this.applyAdvancedFilters();
+    // Slider calificación (soporta ambos IDs de ambas versiones del HTML)
+    const slider = document.getElementById("filterRating");
+    const sliderVal =
+      document.getElementById("filterRatingValue") ||
+      document.getElementById("ratingValue");
+    if (slider && sliderVal) {
+      slider.addEventListener("input", (e) => {
+        const v = parseFloat(e.target.value);
+        sliderVal.textContent =
+          this.currentSection === "games" ? Math.round(v * 10) : v.toFixed(1);
       });
     }
 
-    const btnResetFilters = document.querySelector(".btn-reset-filters");
-    if (btnResetFilters) {
-      btnResetFilters.addEventListener("click", () => {
-        this.resetFilters();
-      });
-    }
-
-    // Detectar cambio de sección
+    // Detectar sección activa desde los botones de nav
     document.querySelectorAll(".nav-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const section = btn.getAttribute("data-section");
-        if (section === "animes" || section === "games") {
-          this.currentSection = section;
+        const sec = btn.getAttribute("data-section");
+        if (sec === "animes" || sec === "games") {
+          this.currentSection = sec;
           this.updateGenreFilters();
           this.updateRatingSlider();
         }
       });
     });
+  }
 
-    // Slider de calificación
-    const ratingSlider = document.getElementById("filterRating");
-    const ratingValue = document.getElementById("ratingValue");
-
-    if (ratingSlider && ratingValue) {
-      ratingSlider.addEventListener("input", (e) => {
-        const value = parseFloat(e.target.value);
-        if (this.currentSection === "games") {
-          ratingValue.textContent = Math.round(value * 10); // 0-100
-        } else {
-          ratingValue.textContent = value.toFixed(1); // 0-10
-        }
-      });
+  _runSearch(val) {
+    if (!val || val.length < 2) {
+      // Sin búsqueda: recargar catálogo normal
+      if (
+        this.currentSection === "animes" &&
+        typeof animeController !== "undefined"
+      ) {
+        animeController.renderAnimeGrid && animeController.renderAnimeGrid();
+      } else if (typeof gameController !== "undefined") {
+        gameController.renderGameGrid && gameController.renderGameGrid();
+      }
+      return;
+    }
+    if (
+      this.currentSection === "animes" &&
+      typeof animeController !== "undefined"
+    ) {
+      animeController.search(val);
+    } else if (typeof gameController !== "undefined") {
+      gameController.search(val);
     }
   }
 
-  toggleAdvancedSearch() {
-    const panel = document.getElementById("advancedSearchPanel");
-    const btn = document.querySelector(".btn-advanced-search");
+  // ── Toggle del panel de filtros avanzados ─────────────────────────────────
 
-    if (!panel) {
-      console.error("❌ No se encontró el panel de búsqueda avanzada");
+  toggleAdvancedSearch() {
+    this.advancedPanelOpen ? this._closePanel() : this._openPanel();
+  }
+
+  _openPanel() {
+    // Soporta ambas versiones del panel (nuevo y original)
+    const panel =
+      document.getElementById("advancedFiltersPanel") ||
+      document.getElementById("advancedSearchPanel");
+    const btn =
+      document.querySelector(".btn-filters") ||
+      document.querySelector(".btn-advanced-search");
+    if (!panel) return;
+
+    this.advancedPanelOpen = true;
+    panel.style.display = "block";
+    requestAnimationFrame(() => {
+      // Soporta ambas clases
+      panel.classList.add("open");
+      panel.classList.add("show");
+    });
+    if (btn) btn.textContent = "Ocultar Filtros ▲";
+  }
+
+  _closePanel() {
+    const panel =
+      document.getElementById("advancedFiltersPanel") ||
+      document.getElementById("advancedSearchPanel");
+    const btn =
+      document.querySelector(".btn-filters") ||
+      document.querySelector(".btn-advanced-search");
+    if (!panel) return;
+
+    this.advancedPanelOpen = false;
+    panel.classList.remove("open");
+    panel.classList.remove("show");
+    setTimeout(() => {
+      if (!this.advancedPanelOpen) panel.style.display = "none";
+    }, 310);
+    if (btn) btn.textContent = "Filtros avanzados ▼";
+  }
+
+  // ── Aplicar filtros ───────────────────────────────────────────────────────
+
+  applyAdvancedFilters() {
+    const genre = document.getElementById("filterGenre")?.value || "";
+    const yearMin =
+      parseInt(document.getElementById("filterYearMin")?.value) || null;
+    const yearMax =
+      parseInt(document.getElementById("filterYearMax")?.value) || null;
+    const rating =
+      parseFloat(document.getElementById("filterRating")?.value) || 0;
+    const sort = document.getElementById("filterSort")?.value || "relevance";
+
+    if (yearMin && yearMax && yearMin > yearMax) {
+      if (typeof authController !== "undefined") {
+        authController.showMessage(
+          "El año inicial no puede ser mayor que el año final.",
+          "error",
+        );
+      }
       return;
     }
 
-    this.advancedPanelOpen = !this.advancedPanelOpen;
+    this.advancedFilters = { genre, yearMin, yearMax, rating, sort };
 
-    if (this.advancedPanelOpen) {
-      panel.style.display = "block";
-      panel.classList.add("show");
-      if (btn) btn.textContent = "Ocultar Filtros";
-      console.log("✅ Panel de filtros: abierto");
-    } else {
-      panel.classList.remove("show");
-      setTimeout(() => {
-        panel.style.display = "none";
-      }, 300);
-      if (btn) btn.textContent = "Filtros Avanzados";
-      console.log("✅ Panel de filtros: cerrado");
+    if (
+      this.currentSection === "animes" &&
+      typeof animeController !== "undefined"
+    ) {
+      this._applyToAnimes();
+    } else if (typeof gameController !== "undefined") {
+      this._applyToGames();
     }
   }
+
+  _applyToAnimes() {
+    const { genre, yearMin, yearMax, rating, sort } = this.advancedFilters;
+    let items = typeof animeModel !== "undefined" ? [...animeModel.animes] : [];
+
+    if (genre) {
+      items = items.filter((a) => {
+        const g = (a.genre || a.genero || "").toLowerCase();
+        return g.includes(genre.toLowerCase());
+      });
+    }
+    if (yearMin)
+      items = items.filter((a) => parseInt(a.year || a.año || 0) >= yearMin);
+    if (yearMax)
+      items = items.filter((a) => parseInt(a.year || a.año || 0) <= yearMax);
+    if (rating > 0)
+      items = items.filter((a) => parseFloat(a.rating || 0) >= rating);
+
+    items = this._sort(items, sort, false);
+
+    if (
+      typeof animeController !== "undefined" &&
+      typeof animeController.renderAnimeGrid === "function"
+    ) {
+      animeController.renderAnimeGrid(items);
+    }
+
+    const msg = `${items.length} resultado${items.length !== 1 ? "s" : ""} encontrado${items.length !== 1 ? "s" : ""}.`;
+    if (typeof authController !== "undefined")
+      authController.showMessage(msg, "success");
+  }
+
+  _applyToGames() {
+    const { genre, yearMin, yearMax, rating, sort } = this.advancedFilters;
+    let items = typeof gameModel !== "undefined" ? [...gameModel.games] : [];
+
+    if (genre) {
+      items = items.filter((g) => {
+        const gen = Array.isArray(g.genres)
+          ? g.genres
+              .map((x) => x.name || x)
+              .join(",")
+              .toLowerCase()
+          : (g.genre || g.genero || "").toLowerCase();
+        return gen.includes(genre.toLowerCase());
+      });
+    }
+    if (yearMin) {
+      items = items.filter((g) => {
+        const y = g.released
+          ? parseInt(g.released.slice(0, 4))
+          : parseInt(g.year || g.año || 0);
+        return y >= yearMin;
+      });
+    }
+    if (yearMax) {
+      items = items.filter((g) => {
+        const y = g.released
+          ? parseInt(g.released.slice(0, 4))
+          : parseInt(g.year || g.año || 0);
+        return y <= yearMax;
+      });
+    }
+    if (rating > 0) {
+      const threshold = rating > 10 ? rating : rating * 10; // normalizar
+      items = items.filter((g) => (g.metacritic || g.rating || 0) >= threshold);
+    }
+
+    items = this._sort(items, sort, true);
+
+    if (
+      typeof gameController !== "undefined" &&
+      typeof gameController.renderGameGrid === "function"
+    ) {
+      gameController.renderGameGrid(items);
+    }
+
+    const msg = `${items.length} resultado${items.length !== 1 ? "s" : ""} encontrado${items.length !== 1 ? "s" : ""}.`;
+    if (typeof authController !== "undefined")
+      authController.showMessage(msg, "success");
+  }
+
+  _sort(items, sort, isGame) {
+    switch (sort) {
+      case "rating":
+        return items.sort((a, b) => {
+          const ra = isGame
+            ? b.metacritic || b.rating || 0
+            : parseFloat(b.rating || 0);
+          const rb = isGame
+            ? a.metacritic || a.rating || 0
+            : parseFloat(a.rating || 0);
+          return ra - rb;
+        });
+      case "year":
+        return items.sort((a, b) => {
+          const ya = isGame
+            ? parseInt((b.released || "0").slice(0, 4))
+            : parseInt(b.year || b.año || 0);
+          const yb = isGame
+            ? parseInt((a.released || "0").slice(0, 4))
+            : parseInt(a.year || a.año || 0);
+          return ya - yb;
+        });
+      case "title":
+        return items.sort((a, b) =>
+          (a.title || a.titulo || a.name || "").localeCompare(
+            b.title || b.titulo || b.name || "",
+          ),
+        );
+      default:
+        return items;
+    }
+  }
+
+  clearFilters() {
+    [
+      "filterGenre",
+      "filterYearMin",
+      "filterYearMax",
+      "filterRating",
+      "filterSort",
+    ].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.tagName === "SELECT") el.selectedIndex = 0;
+      else if (el.type === "range") {
+        el.value = 0;
+      } else el.value = "";
+    });
+    const sliderVal =
+      document.getElementById("filterRatingValue") ||
+      document.getElementById("ratingValue");
+    if (sliderVal) sliderVal.textContent = "0";
+    this.advancedFilters = {};
+    this._runSearch("");
+  }
+
+  // Alias para compatibilidad con el nuevo index.html
+  applyFilters() {
+    this.applyAdvancedFilters();
+  }
+  resetFilters() {
+    this.clearFilters();
+  }
+
+  // ── Género y slider ───────────────────────────────────────────────────────
 
   updateGenreFilters() {
     const filterGenre = document.getElementById("filterGenre");
     if (!filterGenre) return;
 
-    const sourceSelect =
-      this.currentSection === "animes"
-        ? document.getElementById("animeGenre")
-        : document.getElementById("gameGenre");
+    const sourceId =
+      this.currentSection === "animes" ? "animeGenreFilter" : "gameGenreFilter";
+    const source = document.getElementById(sourceId);
+    if (!source) return;
 
-    if (!sourceSelect) return;
-
-    filterGenre.innerHTML = "";
-    Array.from(sourceSelect.options).forEach((option) => {
-      const newOption = document.createElement("option");
-      newOption.value = option.value;
-      newOption.textContent = option.textContent;
-      filterGenre.appendChild(newOption);
+    // Copiar opciones de género del filtro de la sección al filtro avanzado
+    filterGenre.innerHTML = '<option value="">Todos los géneros</option>';
+    Array.from(source.options).forEach((opt) => {
+      if (opt.value) {
+        const o = document.createElement("option");
+        o.value = opt.value;
+        o.textContent = opt.textContent;
+        filterGenre.appendChild(o);
+      }
     });
-
-    console.log(`✅ Géneros actualizados para ${this.currentSection}`);
   }
 
   updateRatingSlider() {
-    const ratingSlider = document.getElementById("filterRating");
-    const ratingValue = document.getElementById("ratingValue");
-
-    if (!ratingSlider || !ratingValue) return;
+    const slider = document.getElementById("filterRating");
+    const sliderVal =
+      document.getElementById("filterRatingValue") ||
+      document.getElementById("ratingValue");
+    if (!slider || !sliderVal) return;
 
     if (this.currentSection === "games") {
-      ratingSlider.max = "10";
-      ratingSlider.value = "0";
-      ratingValue.textContent = "0";
+      slider.max = "100";
+      slider.step = "1";
+      slider.value = "0";
+      sliderVal.textContent = "0";
     } else {
-      ratingSlider.max = "10";
-      ratingSlider.value = "0";
-      ratingValue.textContent = "0.0";
-    }
-  }
-
-  async applyAdvancedFilters() {
-    const filters = {
-      genre: document.getElementById("filterGenre")?.value || "",
-      yearMin: parseInt(document.getElementById("filterYearMin")?.value) || 0,
-      yearMax:
-        parseInt(document.getElementById("filterYearMax")?.value) || 9999,
-      rating: parseFloat(document.getElementById("filterRating")?.value) || 0,
-      sort: document.getElementById("filterSort")?.value || "relevance",
-    };
-
-    if (filters.yearMin > filters.yearMax) {
-      alert("El año mínimo no puede ser mayor al año máximo");
-      return;
-    }
-
-    console.log("🔍 Aplicando filtros:", filters);
-
-    if (this.currentSection === "animes") {
-      let items = animeModel.getAllAnimes();
-
-      if (filters.genre) {
-        items = items.filter((anime) =>
-          anime.genre.toLowerCase().includes(filters.genre.toLowerCase()),
-        );
-      }
-
-      items = items.filter((anime) => {
-        const year = parseInt(anime.year) || 0;
-        return year >= filters.yearMin && year <= filters.yearMax;
-      });
-
-      items = items.filter((anime) => {
-        const rating = parseFloat(anime.rating) || 0;
-        return rating >= filters.rating;
-      });
-
-      // Ordenar
-      if (filters.sort === "rating") {
-        items.sort(
-          (a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0),
-        );
-      } else if (filters.sort === "year") {
-        items.sort((a, b) => parseInt(b.year || 0) - parseInt(a.year || 0));
-      } else if (filters.sort === "title") {
-        items.sort((a, b) => a.title.localeCompare(b.title));
-      }
-
-      animeController.renderAnimeGrid(items);
-    } else if (this.currentSection === "games") {
-      let items = gameModel.getAllGames();
-
-      if (filters.genre) {
-        items = items.filter((game) =>
-          game.genre.toLowerCase().includes(filters.genre.toLowerCase()),
-        );
-      }
-
-      items = items.filter((game) => {
-        const year = parseInt(game.year) || 0;
-        return year >= filters.yearMin && year <= filters.yearMax;
-      });
-
-      items = items.filter((game) => {
-        const rating = parseFloat(game.rating) || 0;
-        return rating >= filters.rating;
-      });
-
-      // Ordenar
-      if (filters.sort === "rating") {
-        items.sort(
-          (a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0),
-        );
-      } else if (filters.sort === "year") {
-        items.sort((a, b) => parseInt(b.year || 0) - parseInt(a.year || 0));
-      } else if (filters.sort === "title") {
-        items.sort((a, b) => a.title.localeCompare(b.title));
-      }
-
-      gameController.renderGameGrid(items);
-    }
-
-    // Cerrar panel automáticamente
-    this.toggleAdvancedSearch();
-  }
-
-  resetFilters() {
-    document.getElementById("filterGenre").value = "";
-    document.getElementById("filterYearMin").value = "";
-    document.getElementById("filterYearMax").value = "";
-    document.getElementById("filterRating").value = "0";
-    document.getElementById("ratingValue").textContent =
-      this.currentSection === "games" ? "0" : "0.0";
-    document.getElementById("filterSort").value = "relevance";
-
-    if (this.currentSection === "animes") {
-      animeController.renderAnimeGrid();
-    } else {
-      gameController.renderGameGrid();
+      slider.max = "10";
+      slider.step = "0.1";
+      slider.value = "0";
+      sliderVal.textContent = "0.0";
     }
   }
 }

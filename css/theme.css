@@ -1,0 +1,535 @@
+/* css/theme.css — Sistema de temas + FIXES */
+
+/* ── Variables tema oscuro (defecto) ───────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --bg-primary: #0d0d1a;
+  --bg-secondary: #1a0533;
+  --bg-card: rgba(104, 9, 229, 0.08);
+  --bg-header: rgba(13, 13, 26, 0.97);
+  --bg-search: rgba(13, 13, 26, 0.95);
+  --bg-input: rgba(255, 255, 255, 0.06);
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0b0;
+  --text-muted: #66668080;
+  --border: rgba(104, 9, 229, 0.25);
+  --primary: #6809e5;
+  --primary-dark: #4a06a3;
+  --danger: #e74c3c;
+  --success: #27ae60;
+  --warning: #f39c12;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --no-img-bg: linear-gradient(135deg, #1a0533 0%, #6809e5 100%);
+  --no-img-text: rgba(255, 255, 255, 0.35);
+  --carousel-dot: rgba(255, 255, 255, 0.35);
+  --carousel-dot-active: #fff;
+  --filter-btn-border: #6809e5;
+  --scrollbar-thumb: #6809e5;
+}
+
+/* ── Variables tema claro ───────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-primary: #f2f2f8;
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(104, 9, 229, 0.05);
+  --bg-header: rgba(255, 255, 255, 0.98);
+  --bg-search: rgba(255, 255, 255, 0.98);
+  --bg-input: rgba(0, 0, 0, 0.05);
+  --text-primary: #1a1a2e;
+  --text-secondary: #44445a;
+  --text-muted: #888;
+  --border: rgba(104, 9, 229, 0.18);
+  --primary: #6809e5;
+  --primary-dark: #4a06a3;
+  --danger: #c0392b;
+  --success: #1e8449;
+  --warning: #d68910;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --no-img-bg: linear-gradient(135deg, #e8e0f5 0%, #c9b8ea 100%);
+  --no-img-text: rgba(104, 9, 229, 0.5);
+  --carousel-dot: rgba(0, 0, 0, 0.25);
+  --carousel-dot-active: #6809e5;
+  --filter-btn-border: #6809e5;
+  --scrollbar-thumb: #6809e5;
+}
+
+/* ── Base ───────────────────────────────────────────────────────── */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition:
+    background-color 0.3s,
+    color 0.3s;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FIX 1 — HEADER Y SEARCH: aplicar color desde el inicio sin esperar scroll
+   ══════════════════════════════════════════════════════════════════ */
+.header {
+  background: var(--bg-header) !important;
+  border-bottom: 1px solid var(--border);
+  transition:
+    background 0.3s,
+    border-color 0.3s;
+}
+
+/* Fuerza el bg aunque tenga clase .scrolled o sin ella */
+.header,
+.header.scrolled {
+  background: var(--bg-header) !important;
+}
+
+.search-section,
+#searchSection {
+  background: var(--bg-search) !important;
+  border-bottom: 1px solid var(--border);
+  transition:
+    background 0.3s,
+    border-color 0.3s;
+}
+
+/* ── Textos del header en modo claro ───────────────────────────── */
+[data-theme="light"] .logo h1 {
+  color: var(--primary);
+}
+[data-theme="light"] .nav-btn {
+  color: var(--text-primary);
+}
+[data-theme="light"] .nav-btn:hover,
+[data-theme="light"] .nav-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ── Inputs en modo claro ──────────────────────────────────────── */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+[data-theme="light"] input::placeholder {
+  color: var(--text-muted);
+}
+[data-theme="light"] #searchInput {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+}
+
+/* ── Cards en modo claro ───────────────────────────────────────── */
+[data-theme="light"] .catalog-item {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 10px rgba(104, 9, 229, 0.08);
+}
+[data-theme="light"] .catalog-item h3 {
+  color: var(--text-primary);
+}
+[data-theme="light"] .catalog-item .genre,
+[data-theme="light"] .catalog-item .year {
+  color: var(--text-secondary);
+}
+
+/* ── Settings y admin cards ────────────────────────────────────── */
+[data-theme="light"] .settings-card,
+[data-theme="light"] .admin-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+}
+[data-theme="light"] .settings-card h3 {
+  color: var(--primary);
+}
+[data-theme="light"] .section-title {
+  color: var(--primary);
+}
+
+/* ── Footer ────────────────────────────────────────────────────── */
+[data-theme="light"] .footer {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+[data-theme="light"] .footer h4,
+[data-theme="light"] .footer p,
+[data-theme="light"] .footer a {
+  color: var(--text-primary);
+}
+
+/* ── Modales ───────────────────────────────────────────────────── */
+[data-theme="light"] .modal-content,
+[data-theme="light"] .auth-modal {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FIX 2 — NO-IMAGE placeholder adaptado por tema
+   ══════════════════════════════════════════════════════════════════ */
+.no-image-placeholder,
+img[src=""][alt],
+img:not([src]) {
+  background: var(--no-img-bg);
+  color: var(--no-img-text);
+}
+
+/* Fallback para imágenes del carrusel sin URL */
+.carousel-slide .carousel-image {
+  background: var(--no-img-bg);
+}
+[data-theme="light"] .carousel-image img[onerror] {
+  background: var(--no-img-bg);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FIX 3 — INDICADORES DEL CARRUSEL: visibles en modo claro
+   ══════════════════════════════════════════════════════════════════ */
+.carousel-indicator {
+  background: var(--carousel-dot) !important;
+  border: 1px solid rgba(104, 9, 229, 0.3);
+  transition:
+    background 0.3s,
+    width 0.3s,
+    border-color 0.3s;
+}
+.carousel-indicator.active {
+  background: var(--carousel-dot-active) !important;
+  border-color: var(--carousel-dot-active);
+  width: 30px;
+  border-radius: 6px;
+}
+.carousel-indicator:hover {
+  background: var(--primary) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FIX 4 — BOTONES DEL CARRUSEL: ambos visibles (prev y next)
+   ══════════════════════════════════════════════════════════════════ */
+.carousel-btn.prev,
+.carousel-btn.next,
+/* por si usan clases carousel-btn + prev / next por separado */
+#carouselPrev,
+#carouselNext {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(6px);
+  transition:
+    background 0.25s,
+    transform 0.25s,
+    color 0.25s;
+}
+
+.carousel-btn.prev,
+#carouselPrev {
+  left: 14px;
+}
+
+.carousel-btn.next,
+#carouselNext {
+  right: 14px;
+}
+
+.carousel-btn.prev:hover,
+.carousel-btn.next:hover,
+#carouselPrev:hover,
+#carouselNext:hover {
+  background: rgba(104, 9, 229, 0.85);
+  transform: translateY(-50%) scale(1.08);
+}
+
+[data-theme="light"] .carousel-btn.prev,
+[data-theme="light"] .carousel-btn.next,
+[data-theme="light"] #carouselPrev,
+[data-theme="light"] #carouselNext {
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--primary);
+  box-shadow: 0 2px 12px rgba(104, 9, 229, 0.18);
+}
+[data-theme="light"] .carousel-btn.prev:hover,
+[data-theme="light"] .carousel-btn.next:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FIX 5 — FILTROS AVANZADOS: ocultos por defecto, bonitos al abrir
+   ══════════════════════════════════════════════════════════════════ */
+
+/* El nuevo index.html usa #advancedFiltersPanel, el original usa #advancedSearchPanel */
+#advancedFiltersPanel,
+#advancedSearchPanel,
+.advanced-search-panel,
+.advanced-filters-panel {
+  display: none !important;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+#advancedFiltersPanel.open,
+#advancedSearchPanel.show,
+.advanced-search-panel.show,
+.advanced-filters-panel.open {
+  display: block !important;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.filter-group label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.filter-group input,
+.filter-group select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
+.filters-actions {
+  display: flex;
+  gap: 10px;
+  padding: 0 18px 18px;
+}
+.btn-primary-sm {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+.btn-primary-sm:hover {
+  background: var(--primary-dark);
+}
+.btn-secondary-sm {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 8px 18px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+.btn-secondary-sm:hover {
+  background: var(--bg-card);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FIX 6 — PAGINACIÓN: siempre visible cuando existe
+   ══════════════════════════════════════════════════════════════════ */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 0;
+  flex-wrap: wrap;
+}
+.pagination-btn {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 9px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  min-width: 42px;
+  transition: all 0.2s;
+}
+.pagination-btn:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.pagination-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  font-weight: 700;
+}
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+[data-theme="light"] .pagination-btn {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border);
+  box-shadow: 0 1px 4px rgba(104, 9, 229, 0.07);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FIX 7 — THEME SWITCH con iconos SVG animados (sin emojis)
+   ══════════════════════════════════════════════════════════════════ */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.theme-switch-input {
+  display: none;
+}
+
+.theme-switch-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 62px;
+  height: 30px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: 15px;
+  cursor: pointer;
+  padding: 0 6px;
+  transition:
+    background 0.3s,
+    border-color 0.3s;
+  overflow: hidden;
+}
+.theme-switch-label:hover {
+  border-color: var(--primary);
+}
+
+/* Iconos SVG embebidos */
+.theme-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  z-index: 1;
+  transition:
+    opacity 0.3s,
+    transform 0.4s;
+}
+.theme-icon-sun {
+  color: #f39c12;
+}
+.theme-icon-moon {
+  color: #a0a0cc;
+}
+
+/* Slider */
+.theme-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  background: var(--primary);
+  border-radius: 50%;
+  transition:
+    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.3s;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+/* Checked = tema claro → slider va a la derecha */
+.theme-switch-input:checked ~ .theme-switch-label .theme-slider {
+  transform: translateX(32px);
+  background: #f39c12;
+}
+
+/* Rotar icono sol al activar modo claro */
+.theme-switch-input:checked ~ .theme-switch-label .theme-icon-sun {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+.theme-switch-input:checked ~ .theme-switch-label .theme-icon-moon {
+  opacity: 0.3;
+}
+.theme-switch-input:not(:checked) ~ .theme-switch-label .theme-icon-moon {
+  opacity: 1;
+  transform: rotate(0deg);
+}
+.theme-switch-input:not(:checked) ~ .theme-switch-label .theme-icon-sun {
+  opacity: 0.35;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+
+/* ── Toast messages (para authController) ──────────────────────── */
+.toast-message {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  padding: 0.75rem 1.4rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #fff;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  max-width: 340px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+.toast-message.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.toast-message.success {
+  background: var(--success);
+}
+.toast-message.error {
+  background: var(--danger);
+}
+.toast-message.warning {
+  background: var(--warning);
+  color: #111;
+}
+.toast-message.info {
+  background: var(--primary);
+}
