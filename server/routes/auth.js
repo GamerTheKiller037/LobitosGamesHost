@@ -1,6 +1,6 @@
 // server/routes/auth.js
-// Rutas: /api/auth/register, /login, /refresh, /logout,
-//        /mfa/verify, /reset/request, /reset/confirm, /sessions
+// Integrado con notificationService — envía emails reales con Nodemailer
+// y SMS reales con Twilio (o simula en consola si no están configurados)
 
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
@@ -8,13 +8,17 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const User = require("../models/User");
 const Session = require("../models/Session");
+const {
+  sendPasswordResetEmail,
+  sendMfaCodeEmail,
+  sendSmsOtp,
+} = require("../services/notificationService");
 
 const ACCESS_SECRET = process.env.JWT_SECRET || "lobitos_jwt_secret_2026";
 const REFRESH_SECRET =
   process.env.JWT_REFRESH_SECRET || "lobitos_refresh_secret_2026";
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET || "";
 
-// ── Helper: generar tokens ────────────────────────────────────────────────────
 function signAccess(payload) {
   return jwt.sign(payload, ACCESS_SECRET, { expiresIn: "15m" });
 }
@@ -22,9 +26,8 @@ function signRefresh(payload) {
   return jwt.sign(payload, REFRESH_SECRET, { expiresIn: "7d" });
 }
 
-// ── Helper: verificar reCAPTCHA ───────────────────────────────────────────────
 async function verifyRecaptcha(token) {
-  if (!RECAPTCHA_SECRET || !token) return true; // omitir en dev si no hay secret
+  if (!RECAPTCHA_SECRET || !token) return true;
   const res = await fetch(
     `https://www.google.com/recaptcha/api/siteverify?secret=${RECAPTCHA_SECRET}&response=${token}`,
     { method: "POST" },
@@ -33,15 +36,12 @@ async function verifyRecaptcha(token) {
   return json.success;
 }
 
-// ── Helper: info dispositivo ──────────────────────────────────────────────────
 function getDeviceInfo(req) {
   const ua = req.headers["user-agent"] || "";
   return /mobile/i.test(ua) ? "Móvil" : "Escritorio";
 }
 
-// ══════════════════════════════════════════════════════════════
-// POST /api/auth/register
-// ══════════════════════════════════════════════════════════════
+// ── POST /api/auth/register ───────────────────────────────────────────────────
 router.post("/register", async (req, res) => {
   try {
     const {
@@ -55,12 +55,8 @@ router.post("/register", async (req, res) => {
       recaptchaToken,
     } = req.body;
 
-    // Verificar reCAPTCHA
-    if (!(await verifyRecaptcha(recaptchaToken))) {
+    if (!(await verifyRecaptcha(recaptchaToken)))
       return res.status(400).json({ error: "Verificación reCAPTCHA fallida." });
-    }
-
-    // Validaciones
     if (!nombre || !apellido || !username || !email || !password)
       return res
         .status(400)
@@ -74,10 +70,9 @@ router.post("/register", async (req, res) => {
     if (exists) {
       if (exists.email === email)
         return res.status(400).json({ error: "El correo ya está registrado." });
-      if (exists.username === username)
-        return res
-          .status(400)
-          .json({ error: "El nombre de usuario ya está en uso." });
+      return res
+        .status(400)
+        .json({ error: "El nombre de usuario ya está en uso." });
     }
 
     const user = new User({
@@ -92,17 +87,16 @@ router.post("/register", async (req, res) => {
         : null,
     });
     await user.save();
-
-    res.status(201).json({ success: true, user: user.toSafeObject() });
+    res
+      .status(201)
+      .json({ success: true, message: "Usuario registrado exitosamente." });
   } catch (err) {
     console.error("[Register]", err);
     res.status(500).json({ error: "Error al registrar usuario." });
   }
 });
 
-// ══════════════════════════════════════════════════════════════
-// POST /api/auth/login
-// ══════════════════════════════════════════════════════════════
+// ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post("/login", async (req, res) => {
   try {
     const { emailOrUsername, password, recaptchaToken } = req.body;
@@ -112,184 +106,272 @@ router.post("/login", async (req, res) => {
 
     const user = await User.findOne({
       $or: [{ email: emailOrUsername }, { username: emailOrUsername }],
+      activo: true,
     });
+
     if (!user)
-      return res.status(401).json({ error: "Credenciales incorrectas." });
+      return res.status(401).json({ error: "Credenciales inválidas." });
 
-    if (!user.activo)
-      return res.status(403).json({ error: "Cuenta desactivada." });
-
-    // Verificar bloqueo
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      const rem = Math.ceil((user.lockedUntil - Date.now()) / 60000);
+      const mins = Math.ceil((user.lockedUntil - Date.now()) / 60000);
       return res
-        .status(429)
-        .json({ error: `Cuenta bloqueada. Intenta en ${rem} min.` });
+        .status(423)
+        .json({ error: `Cuenta bloqueada. Intenta en ${mins} minutos.` });
     }
 
-    const valid = await user.comparePassword(password);
-    if (!valid) {
+    if (!(await user.comparePassword(password))) {
       user.failedAttempts = (user.failedAttempts || 0) + 1;
       if (user.failedAttempts >= 5) {
         user.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
         user.failedAttempts = 0;
       }
       await user.save();
-      return res.status(401).json({ error: "Credenciales incorrectas." });
+      return res.status(401).json({ error: "Credenciales inválidas." });
     }
 
     user.failedAttempts = 0;
     user.lockedUntil = null;
     await user.save();
 
-    // Si tiene MFA activo
+    // Si tiene MFA activo, enviar código por email y requerir verificación
     if (user.mfaEnabled) {
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      // En producción: enviar por email real con nodemailer
-      console.log(`[MFA] OTP para ${user.email}: ${otp}`);
-      // Guardar OTP en base de datos (simplificado: en memoria/redis en producción)
-      return res.json({
-        success: true,
-        requiresMfa: true,
-        userId: user._id,
-        mfaOtp: otp /* SOLO DEMO */,
-      });
+      const mfaCode = Math.floor(100000 + Math.random() * 900000).toString();
+      user.mfaSecret = mfaCode;
+      user.mfaExpiry = new Date(Date.now() + 10 * 60 * 1000);
+      await user.save();
+
+      // Enviar código real por email
+      await sendMfaCodeEmail(user.email, mfaCode, user.nombre);
+
+      return res.json({ requiresMfa: true, userId: user._id });
     }
 
-    // Crear sesión
-    const session = await Session.create({
+    const session = new Session({
       userId: user._id,
       ipAddress: req.ip,
-      userAgent: (req.headers["user-agent"] || "").slice(0, 120),
+      userAgent: req.headers["user-agent"] || "",
       deviceInfo: getDeviceInfo(req),
+      isActive: true,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
+    await session.save();
 
-    const payload = {
-      id: user._id,
-      username: user.username,
-      role: user.role,
-      sessionId: session._id,
-    };
-    const accessToken = signAccess(payload);
-    const refreshToken = signRefresh({ id: user._id, sessionId: session._id });
-
+    const payload = { id: user._id, role: user.role, sessionId: session._id };
     res.json({
       success: true,
-      user: { ...user.toSafeObject(), sessionId: session._id },
-      accessToken,
-      refreshToken,
+      accessToken: signAccess(payload),
+      refreshToken: signRefresh(payload),
+      user: user.toSafeObject(),
     });
   } catch (err) {
     console.error("[Login]", err);
-    res.status(500).json({ error: "Error al iniciar sesión." });
+    res.status(500).json({ error: "Error interno." });
   }
 });
 
-// ══════════════════════════════════════════════════════════════
-// POST /api/auth/refresh
-// ══════════════════════════════════════════════════════════════
-router.post("/refresh", async (req, res) => {
-  const { refreshToken } = req.body;
-  if (!refreshToken)
-    return res.status(401).json({ error: "No hay refresh token." });
+// ── POST /api/auth/mfa/verify ─────────────────────────────────────────────────
+router.post("/mfa/verify", async (req, res) => {
   try {
-    const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
-    const user = await User.findById(decoded.id);
-    if (!user) return res.status(401).json({ error: "Usuario no encontrado." });
-    const newAccess = signAccess({
-      id: user._id,
-      username: user.username,
-      role: user.role,
-      sessionId: decoded.sessionId,
-    });
-    res.json({ accessToken: newAccess });
-  } catch {
-    res.status(401).json({ error: "Refresh token inválido o expirado." });
-  }
-});
+    const { userId, code } = req.body;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ error: "Usuario no encontrado." });
 
-// ══════════════════════════════════════════════════════════════
-// POST /api/auth/logout
-// ══════════════════════════════════════════════════════════════
-router.post("/logout", async (req, res) => {
-  try {
-    const { sessionId } = req.body;
-    if (sessionId)
-      await Session.findByIdAndUpdate(sessionId, { isActive: false });
-    res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: "Error al cerrar sesión." });
-  }
-});
+    if (!user.mfaSecret || !user.mfaExpiry || user.mfaExpiry < new Date())
+      return res
+        .status(400)
+        .json({ error: "Código expirado. Inicia sesión de nuevo." });
 
-// ══════════════════════════════════════════════════════════════
-// GET /api/auth/sessions/:userId
-// ══════════════════════════════════════════════════════════════
-router.get("/sessions/:userId", async (req, res) => {
-  try {
-    const sessions = await Session.find({
-      userId: req.params.userId,
+    if (user.mfaSecret !== code)
+      return res.status(400).json({ error: "Código incorrecto." });
+
+    user.mfaSecret = null;
+    user.mfaExpiry = null;
+    await user.save();
+
+    const session = new Session({
+      userId: user._id,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"] || "",
+      deviceInfo: getDeviceInfo(req),
       isActive: true,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
-    res.json({ sessions });
-  } catch {
-    res.status(500).json({ error: "Error al obtener sesiones." });
+    await session.save();
+
+    const payload = { id: user._id, role: user.role, sessionId: session._id };
+    res.json({
+      success: true,
+      accessToken: signAccess(payload),
+      refreshToken: signRefresh(payload),
+      user: user.toSafeObject(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Error." });
   }
 });
 
-// ══════════════════════════════════════════════════════════════
-// DELETE /api/auth/sessions/:sessionId  — revocar sesión específica
-// ══════════════════════════════════════════════════════════════
-router.delete("/sessions/:sessionId", async (req, res) => {
-  try {
-    await Session.findByIdAndUpdate(req.params.sessionId, { isActive: false });
-    res.json({ success: true });
-  } catch {
-    res.status(500).json({ error: "Error al revocar sesión." });
-  }
-});
-
-// ══════════════════════════════════════════════════════════════
-// POST /api/auth/reset/request   — solicitar reset por email
-// ══════════════════════════════════════════════════════════════
+// ── POST /api/auth/reset/request (por email) ──────────────────────────────────
 router.post("/reset/request", async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: "Email no registrado." });
 
-    const token = crypto.randomBytes(32).toString("hex");
-    const expires = new Date(Date.now() + 60 * 60 * 1000);
+    // Siempre responder igual para no revelar si el email existe
+    const genericMsg =
+      "Si el correo está registrado recibirás las instrucciones.";
 
-    // En producción guardar en colección PasswordReset y enviar email
-    console.log(`[RESET] Token para ${email}: ${token}`);
-    // Aquí iría: await sendResetEmail(email, token);
+    if (!user) return res.json({ success: true, message: genericMsg });
 
-    res.json({
-      success: true,
-      message: "Token generado (ver consola para demo).",
-      token /* SOLO DEMO */,
-    });
-  } catch {
-    res.status(500).json({ error: "Error al solicitar reset." });
+    const token = crypto
+      .randomBytes(32)
+      .toString("hex")
+      .slice(0, 8)
+      .toUpperCase();
+    user.resetToken = token;
+    user.resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+    await user.save();
+
+    const result = await sendPasswordResetEmail(email, token, user.nombre);
+
+    if (result.demo && result.previewUrl) {
+      console.log(`📧 Preview del email: ${result.previewUrl}`);
+    }
+
+    res.json({ success: true, message: genericMsg });
+  } catch (err) {
+    console.error("[Reset Request]", err);
+    res.status(500).json({ error: "Error." });
   }
 });
 
-// ══════════════════════════════════════════════════════════════
-// POST /api/auth/reset/confirm
-// ══════════════════════════════════════════════════════════════
+// ── POST /api/auth/reset/confirm ──────────────────────────────────────────────
 router.post("/reset/confirm", async (req, res) => {
   try {
-    const { token, newPassword, email } = req.body;
-    // En producción validar token contra la BD. En demo aceptamos directo.
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: "Usuario no encontrado." });
+    const { token, newPassword } = req.body;
+    const user = await User.findOne({
+      resetToken: token,
+      resetTokenExpiry: { $gt: new Date() },
+    });
+    if (!user)
+      return res.status(400).json({ error: "Token inválido o expirado." });
+
     user.password = newPassword;
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
     await user.save();
-    res.json({ success: true, message: "Contraseña actualizada." });
+
+    res.json({
+      success: true,
+      message: "Contraseña actualizada correctamente.",
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Error." });
+  }
+});
+
+// ── POST /api/auth/reset/sms ──────────────────────────────────────────────────
+router.post("/reset/sms", async (req, res) => {
+  try {
+    const { phone } = req.body;
+    // En producción buscarías el usuario por su número de teléfono
+    // Por ahora generamos el código y lo enviamos al número proporcionado
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const result = await sendSmsOtp(phone, code, "usuario");
+
+    // Guardar el código temporalmente (en producción en la DB asociado al usuario)
+    // Para demo lo guardamos en memoria temporal
+    global._smsOtpStore = global._smsOtpStore || {};
+    global._smsOtpStore[phone] = {
+      code,
+      expiry: new Date(Date.now() + 10 * 60 * 1000),
+    };
+
+    if (result.demo) {
+      res.json({
+        success: true,
+        message: "Código enviado (demo: revisa la consola del servidor).",
+        demo: true,
+      });
+    } else {
+      res.json({ success: true, message: "Código enviado por SMS." });
+    }
+  } catch (err) {
+    console.error("[SMS Reset]", err);
+    res.status(500).json({ error: "Error enviando SMS." });
+  }
+});
+
+// ── POST /api/auth/reset/sms/verify ──────────────────────────────────────────
+router.post("/reset/sms/verify", async (req, res) => {
+  try {
+    const { phone, code, newPassword } = req.body;
+    const stored = global._smsOtpStore?.[phone];
+
+    if (!stored || stored.expiry < new Date() || stored.code !== code)
+      return res.status(400).json({ error: "Código inválido o expirado." });
+
+    delete global._smsOtpStore[phone];
+    res.json({
+      success: true,
+      message: "Código verificado. Puedes cambiar tu contraseña.",
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Error." });
+  }
+});
+
+// ── POST /api/auth/logout ─────────────────────────────────────────────────────
+router.post("/logout", async (req, res) => {
+  try {
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith("Bearer ")) {
+      try {
+        const decoded = jwt.verify(auth.split(" ")[1], ACCESS_SECRET);
+        await Session.findByIdAndUpdate(decoded.sessionId, { isActive: false });
+      } catch {
+        /* token expirado, igual cerrar sesión */
+      }
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Error." });
+  }
+});
+
+// ── POST /api/auth/refresh ────────────────────────────────────────────────────
+router.post("/refresh", async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken)
+      return res.status(401).json({ error: "Token requerido." });
+
+    const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
+    const session = await Session.findById(decoded.sessionId);
+    if (!session || !session.isActive)
+      return res.status(401).json({ error: "Sesión inválida." });
+
+    const user = await User.findById(decoded.id);
+    if (!user || !user.activo)
+      return res.status(401).json({ error: "Usuario inactivo." });
+
+    const payload = { id: user._id, role: user.role, sessionId: session._id };
+    res.json({ accessToken: signAccess(payload) });
   } catch {
-    res.status(500).json({ error: "Error al restablecer contraseña." });
+    res.status(401).json({ error: "Token inválido o expirado." });
+  }
+});
+
+// ── GET /api/auth/sessions ────────────────────────────────────────────────────
+router.get("/sessions", async (req, res) => {
+  try {
+    const auth = req.headers.authorization;
+    if (!auth) return res.status(401).json({ error: "No autenticado." });
+    const decoded = jwt.verify(auth.split(" ")[1], ACCESS_SECRET);
+    const sessions = await Session.find({ userId: decoded.id, isActive: true });
+    res.json({ sessions });
+  } catch {
+    res.status(401).json({ error: "Token inválido." });
   }
 });
 

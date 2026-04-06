@@ -1,6 +1,5 @@
 // js/controllers/searchController.js
-// CORREGIDO: filtros avanzados ocultos por defecto, toggle con clase "open"/"show",
-// applyAdvancedFilters y clearFilters funcionando
+// CORREGIDO: botón toggleFiltersBtn conectado, filtros funcionando, clearFilters OK
 
 class SearchController {
   constructor() {
@@ -13,11 +12,8 @@ class SearchController {
     this.setupEventListeners();
     this.updateGenreFilters();
     this.updateRatingSlider();
-    // Asegurar que el panel empiece cerrado
     this._closePanel();
   }
-
-  // ── Event listeners ───────────────────────────────────────────────────────
 
   setupEventListeners() {
     // Input búsqueda
@@ -49,7 +45,18 @@ class SearchController {
       });
     }
 
-    // Slider calificación (soporta ambos IDs de ambas versiones del HTML)
+    // ── FIX: Botón de filtros avanzados — conectar el listener aquí ──────────
+    const toggleBtn =
+      document.getElementById("toggleFiltersBtn") ||
+      document.querySelector(".btn-filters") ||
+      document.querySelector(".btn-advanced-search");
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", () => {
+        this.toggleAdvancedSearch();
+      });
+    }
+
+    // Slider calificación
     const slider = document.getElementById("filterRating");
     const sliderVal =
       document.getElementById("filterRatingValue") ||
@@ -77,7 +84,6 @@ class SearchController {
 
   _runSearch(val) {
     if (!val || val.length < 2) {
-      // Sin búsqueda: recargar catálogo normal
       if (
         this.currentSection === "animes" &&
         typeof animeController !== "undefined"
@@ -98,18 +104,17 @@ class SearchController {
     }
   }
 
-  // ── Toggle del panel de filtros avanzados ─────────────────────────────────
-
+  // ── Toggle del panel ──────────────────────────────────────────────────────
   toggleAdvancedSearch() {
     this.advancedPanelOpen ? this._closePanel() : this._openPanel();
   }
 
   _openPanel() {
-    // Soporta ambas versiones del panel (nuevo y original)
     const panel =
       document.getElementById("advancedFiltersPanel") ||
       document.getElementById("advancedSearchPanel");
     const btn =
+      document.getElementById("toggleFiltersBtn") ||
       document.querySelector(".btn-filters") ||
       document.querySelector(".btn-advanced-search");
     if (!panel) return;
@@ -117,7 +122,6 @@ class SearchController {
     this.advancedPanelOpen = true;
     panel.style.display = "block";
     requestAnimationFrame(() => {
-      // Soporta ambas clases
       panel.classList.add("open");
       panel.classList.add("show");
     });
@@ -129,6 +133,7 @@ class SearchController {
       document.getElementById("advancedFiltersPanel") ||
       document.getElementById("advancedSearchPanel");
     const btn =
+      document.getElementById("toggleFiltersBtn") ||
       document.querySelector(".btn-filters") ||
       document.querySelector(".btn-advanced-search");
     if (!panel) return;
@@ -143,7 +148,6 @@ class SearchController {
   }
 
   // ── Aplicar filtros ───────────────────────────────────────────────────────
-
   applyAdvancedFilters() {
     const genre = document.getElementById("filterGenre")?.value || "";
     const yearMin =
@@ -178,170 +182,138 @@ class SearchController {
 
   _applyToAnimes() {
     const { genre, yearMin, yearMax, rating, sort } = this.advancedFilters;
-    let items = typeof animeModel !== "undefined" ? [...animeModel.animes] : [];
+    let items =
+      typeof animeModel !== "undefined" ? animeModel.getAllAnimes() : [];
 
     if (genre) {
-      items = items.filter((a) => {
-        const g = (a.genre || a.genero || "").toLowerCase();
-        return g.includes(genre.toLowerCase());
-      });
+      items = items.filter(
+        (a) => a.genre && a.genre.toLowerCase().includes(genre.toLowerCase()),
+      );
     }
-    if (yearMin)
-      items = items.filter((a) => parseInt(a.year || a.año || 0) >= yearMin);
-    if (yearMax)
-      items = items.filter((a) => parseInt(a.year || a.año || 0) <= yearMax);
-    if (rating > 0)
-      items = items.filter((a) => parseFloat(a.rating || 0) >= rating);
+    if (yearMin) items = items.filter((a) => a.year && a.year >= yearMin);
+    if (yearMax) items = items.filter((a) => a.year && a.year <= yearMax);
+    if (rating > 0) items = items.filter((a) => parseFloat(a.rating) >= rating);
 
-    items = this._sort(items, sort, false);
+    if (sort === "rating")
+      items.sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+    else if (sort === "year")
+      items.sort((a, b) => (b.year || 0) - (a.year || 0));
+    else if (sort === "title")
+      items.sort((a, b) => a.title.localeCompare(b.title));
 
-    if (
-      typeof animeController !== "undefined" &&
-      typeof animeController.renderAnimeGrid === "function"
-    ) {
-      animeController.renderAnimeGrid(items);
-    }
+    animeController.renderAnimeGrid(items);
 
-    const msg = `${items.length} resultado${items.length !== 1 ? "s" : ""} encontrado${items.length !== 1 ? "s" : ""}.`;
     if (typeof authController !== "undefined")
-      authController.showMessage(msg, "success");
+      authController.showMessage(
+        `Se encontraron ${items.length} resultados`,
+        "success",
+      );
   }
 
   _applyToGames() {
     const { genre, yearMin, yearMax, rating, sort } = this.advancedFilters;
-    let items = typeof gameModel !== "undefined" ? [...gameModel.games] : [];
+    let items = typeof gameModel !== "undefined" ? gameModel.getAllGames() : [];
 
     if (genre) {
-      items = items.filter((g) => {
-        const gen = Array.isArray(g.genres)
-          ? g.genres
-              .map((x) => x.name || x)
-              .join(",")
-              .toLowerCase()
-          : (g.genre || g.genero || "").toLowerCase();
-        return gen.includes(genre.toLowerCase());
-      });
+      items = items.filter(
+        (g) => g.genre && g.genre.toLowerCase().includes(genre.toLowerCase()),
+      );
     }
-    if (yearMin) {
-      items = items.filter((g) => {
-        const y = g.released
-          ? parseInt(g.released.slice(0, 4))
-          : parseInt(g.year || g.año || 0);
-        return y >= yearMin;
-      });
-    }
-    if (yearMax) {
-      items = items.filter((g) => {
-        const y = g.released
-          ? parseInt(g.released.slice(0, 4))
-          : parseInt(g.year || g.año || 0);
-        return y <= yearMax;
-      });
-    }
-    if (rating > 0) {
-      const threshold = rating > 10 ? rating : rating * 10; // normalizar
-      items = items.filter((g) => (g.metacritic || g.rating || 0) >= threshold);
-    }
+    if (yearMin) items = items.filter((g) => g.year && g.year >= yearMin);
+    if (yearMax) items = items.filter((g) => g.year && g.year <= yearMax);
+    if (rating > 0)
+      items = items.filter((g) => (g.metacritic || 0) / 10 >= rating);
 
-    items = this._sort(items, sort, true);
+    if (sort === "rating")
+      items.sort((a, b) => (b.metacritic || 0) - (a.metacritic || 0));
+    else if (sort === "year")
+      items.sort((a, b) => (b.year || 0) - (a.year || 0));
+    else if (sort === "title")
+      items.sort((a, b) => a.title.localeCompare(b.title));
 
-    if (
-      typeof gameController !== "undefined" &&
-      typeof gameController.renderGameGrid === "function"
-    ) {
-      gameController.renderGameGrid(items);
-    }
+    gameController.renderGameGrid(items);
 
-    const msg = `${items.length} resultado${items.length !== 1 ? "s" : ""} encontrado${items.length !== 1 ? "s" : ""}.`;
     if (typeof authController !== "undefined")
-      authController.showMessage(msg, "success");
+      authController.showMessage(
+        `Se encontraron ${items.length} resultados`,
+        "success",
+      );
   }
 
-  _sort(items, sort, isGame) {
-    switch (sort) {
-      case "rating":
-        return items.sort((a, b) => {
-          const ra = isGame
-            ? b.metacritic || b.rating || 0
-            : parseFloat(b.rating || 0);
-          const rb = isGame
-            ? a.metacritic || a.rating || 0
-            : parseFloat(a.rating || 0);
-          return ra - rb;
-        });
-      case "year":
-        return items.sort((a, b) => {
-          const ya = isGame
-            ? parseInt((b.released || "0").slice(0, 4))
-            : parseInt(b.year || b.año || 0);
-          const yb = isGame
-            ? parseInt((a.released || "0").slice(0, 4))
-            : parseInt(a.year || a.año || 0);
-          return ya - yb;
-        });
-      case "title":
-        return items.sort((a, b) =>
-          (a.title || a.titulo || a.name || "").localeCompare(
-            b.title || b.titulo || b.name || "",
-          ),
-        );
-      default:
-        return items;
-    }
-  }
-
+  // ── Limpiar filtros ───────────────────────────────────────────────────────
   clearFilters() {
-    [
-      "filterGenre",
-      "filterYearMin",
-      "filterYearMax",
-      "filterRating",
-      "filterSort",
-    ].forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (el.tagName === "SELECT") el.selectedIndex = 0;
-      else if (el.type === "range") {
-        el.value = 0;
-      } else el.value = "";
-    });
+    const genre = document.getElementById("filterGenre");
+    const yearMin = document.getElementById("filterYearMin");
+    const yearMax = document.getElementById("filterYearMax");
+    const rating = document.getElementById("filterRating");
+    const sort = document.getElementById("filterSort");
     const sliderVal =
       document.getElementById("filterRatingValue") ||
       document.getElementById("ratingValue");
+
+    if (genre) genre.value = "";
+    if (yearMin) yearMin.value = "";
+    if (yearMax) yearMax.value = "";
+    if (rating) rating.value = 0;
+    if (sort) sort.value = "relevance";
     if (sliderVal) sliderVal.textContent = "0";
+
     this.advancedFilters = {};
-    this._runSearch("");
+
+    // Recargar catálogo sin filtros
+    if (
+      this.currentSection === "animes" &&
+      typeof animeController !== "undefined"
+    ) {
+      animeController.renderAnimeGrid();
+    } else if (typeof gameController !== "undefined") {
+      gameController.renderGameGrid();
+    }
+
+    if (typeof authController !== "undefined")
+      authController.showMessage("Filtros limpiados", "success");
   }
 
-  // Alias para compatibilidad con el nuevo index.html
-  applyFilters() {
-    this.applyAdvancedFilters();
-  }
-  resetFilters() {
-    this.clearFilters();
-  }
-
-  // ── Género y slider ───────────────────────────────────────────────────────
-
+  // ── Actualizar géneros según sección ──────────────────────────────────────
   updateGenreFilters() {
-    const filterGenre = document.getElementById("filterGenre");
-    if (!filterGenre) return;
+    const select = document.getElementById("filterGenre");
+    if (!select) return;
 
-    const sourceId =
-      this.currentSection === "animes" ? "animeGenreFilter" : "gameGenreFilter";
-    const source = document.getElementById(sourceId);
-    if (!source) return;
+    const genres =
+      this.currentSection === "animes"
+        ? [
+            "Action",
+            "Adventure",
+            "Comedy",
+            "Drama",
+            "Fantasy",
+            "Horror",
+            "Mystery",
+            "Romance",
+            "Sci-Fi",
+            "Slice of Life",
+            "Sports",
+            "Supernatural",
+            "Thriller",
+          ]
+        : [
+            "Action",
+            "Adventure",
+            "RPG",
+            "Strategy",
+            "Shooter",
+            "Simulation",
+            "Sports",
+            "Racing",
+            "Puzzle",
+            "Fighting",
+            "Platformer",
+            "Horror",
+          ];
 
-    // Copiar opciones de género del filtro de la sección al filtro avanzado
-    filterGenre.innerHTML = '<option value="">Todos los géneros</option>';
-    Array.from(source.options).forEach((opt) => {
-      if (opt.value) {
-        const o = document.createElement("option");
-        o.value = opt.value;
-        o.textContent = opt.textContent;
-        filterGenre.appendChild(o);
-      }
-    });
+    select.innerHTML =
+      '<option value="">Todos los géneros</option>' +
+      genres.map((g) => `<option value="${g}">${g}</option>`).join("");
   }
 
   updateRatingSlider() {

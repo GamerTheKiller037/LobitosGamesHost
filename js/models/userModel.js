@@ -1,17 +1,9 @@
-// js/models/userModel.js
-// UserModel — sin cuentas de prueba hardcodeadas, compatible con backend MongoDB.
-// En modo "demo" (sin servidor) usa localStorage. Cuando el backend esté activo,
-// todas las llamadas van a /api/auth/*.
-
 const PLACEHOLDER_USER =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Crect width='100%25' height='100%25' fill='%231a0533'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='18' fill='%236809e5'%3EUser%3C/text%3E%3C/svg%3E";
 
-// ── Modo backend ──────────────────────────────────────────────────────────────
-// Cambiar a true cuando el servidor Node.js esté activo.
 const USE_BACKEND = false;
 const API_BASE = "http://localhost:5000/api";
 
-// ── Hash simple (solo para demo/localStorage) ─────────────────────────────────
 function hashPassword(pwd) {
   let h = 0;
   for (let i = 0; i < pwd.length; i++) {
@@ -29,7 +21,6 @@ function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// ── JWT simulado ──────────────────────────────────────────────────────────────
 const JWTUtil = {
   SECRET: "lobitos_jwt_secret_2026",
   REFRESH_SECRET: "lobitos_refresh_secret_2026",

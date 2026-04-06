@@ -1,17 +1,13 @@
 // js/controllers/authController.js
-// AuthController — Práctica 1 Unidad 3
-// reCAPTCHA Google v2, login instantáneo sin recarga,
-// switch de tema, MFA, settings, recovery, SSO.
+// FIX updateAuthUI: soporta tanto id="authButtons" como id="guestMenu"
+// FIX reCAPTCHA: widget IDs rastreados manualmente para login y registro
 
 class AuthController {
   constructor() {
     this.model = userModel;
     this.validationService = validationService;
-    this.loginCaptcha = null; // fallback si reCAPTCHA no carga
-    this.registerCaptcha = null;
+    this._captchaWidgets = {};
   }
-
-  // ── Init ────────────────────────────────────────────────────────────────────
 
   init() {
     this.updateAuthUI();
@@ -20,8 +16,82 @@ class AuthController {
     this._applyStoredTheme();
     this._bindResetTabs();
     AuthMiddleware.applyRoleVisibility();
+    this._renderRecaptchas();
     console.log("✅ AuthController inicializado");
   }
+
+  // ── reCAPTCHA ─────────────────────────────────────────────────────────────────
+
+  _renderRecaptchas() {
+    this._tryRenderWidget("loginRecaptcha");
+    this._tryRenderWidget("registerRecaptcha");
+  }
+
+  _tryRenderWidget(elementId) {
+    try {
+      if (typeof grecaptcha === "undefined") return;
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      if (el.querySelector("iframe")) {
+        this._captchaWidgets[elementId] =
+          elementId === "loginRecaptcha" ? 0 : 1;
+        return;
+      }
+      const widgetId = grecaptcha.render(el, {
+        sitekey: "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI",
+      });
+      this._captchaWidgets[elementId] = widgetId;
+    } catch (e) {
+      if (!String(e).includes("already been rendered")) {
+        console.warn("[reCAPTCHA]", e);
+      }
+    }
+  }
+
+  _getRecaptchaResponse(elementId) {
+    try {
+      if (typeof grecaptcha === "undefined") return "";
+      const widgetId = this._captchaWidgets[elementId];
+      return widgetId !== undefined
+        ? grecaptcha.getResponse(widgetId)
+        : grecaptcha.getResponse();
+    } catch {
+      return "";
+    }
+  }
+
+  _resetRecaptcha(elementId) {
+    try {
+      if (typeof grecaptcha === "undefined") return;
+      const widgetId = this._captchaWidgets[elementId];
+      widgetId !== undefined ? grecaptcha.reset(widgetId) : grecaptcha.reset();
+    } catch {
+      /* silencioso */
+    }
+  }
+
+  _validateRecaptcha(formType) {
+    const elementId = `${formType}Recaptcha`;
+    const el = document.getElementById(elementId);
+    if (!el) return true;
+    this._tryRenderWidget(elementId);
+    try {
+      const response = this._getRecaptchaResponse(elementId);
+      if (!response || response.length === 0) {
+        this.showError(
+          "Por favor completa el reCAPTCHA.",
+          `${formType}RecaptchaError`,
+        );
+        return false;
+      }
+      return true;
+    } catch {
+      console.warn("[reCAPTCHA] No disponible, omitiendo.");
+      return true;
+    }
+  }
+
+  // ── Formularios ───────────────────────────────────────────────────────────────
 
   _bindForms() {
     document.getElementById("loginForm")?.addEventListener("submit", (e) => {
@@ -44,22 +114,19 @@ class AuthController {
       });
   }
 
-  // ── Theme switch ─────────────────────────────────────────────────────────────
+  // ── Tema ──────────────────────────────────────────────────────────────────────
 
   _bindThemeSwitch() {
     const sw = document.getElementById("themeSwitch");
     if (!sw) return;
-
     sw.addEventListener("change", () => {
       const theme = sw.checked ? "light" : "dark";
       this._applyTheme(theme);
-      // Guardar preferencia en usuario si está logueado
       if (userModel.isLoggedIn()) userModel.updatePreferences({ tema: theme });
     });
   }
 
   _applyTheme(theme) {
-    // Aplicar en ambos elementos para que funcionen todos los selectores CSS
     document.documentElement.setAttribute("data-theme", theme);
     document.body.setAttribute("data-theme", theme);
     localStorage.setItem("lg_theme", theme);
@@ -73,73 +140,62 @@ class AuthController {
     this._applyTheme(saved);
   }
 
-  // ── reCAPTCHA helpers ────────────────────────────────────────────────────────
-
-  _getRecaptchaResponse(id) {
-    try {
-      return grecaptcha.getResponse(
-        grecaptcha.render(id, {
-          sitekey: "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI",
-        }),
-      );
-    } catch {
-      // reCAPTCHA ya renderizado: obtener respuesta directa
-      const widgets = { loginRecaptcha: 0, registerRecaptcha: 1 };
-      try {
-        return grecaptcha.getResponse(widgets[id] ?? 0);
-      } catch {
-        return "";
-      }
-    }
+  _bindResetTabs() {
+    document.querySelectorAll(".reset-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document
+          .querySelectorAll(".reset-tab")
+          .forEach((t) => t.classList.remove("active"));
+        document
+          .querySelectorAll(".reset-tab-content")
+          .forEach((c) => c.classList.remove("active"));
+        tab.classList.add("active");
+        document
+          .getElementById(tab.getAttribute("data-tab"))
+          ?.classList.add("active");
+      });
+    });
   }
 
-  _resetRecaptcha(id) {
-    try {
-      const el = document.getElementById(id);
-      if (el) grecaptcha.reset(el.dataset.widgetId ?? 0);
-    } catch {
-      /* silencioso */
-    }
+  // ── Modales ───────────────────────────────────────────────────────────────────
+
+  showLoginModal() {
+    document.getElementById("loginModal")?.classList.add("active");
+    document.body.style.overflow = "hidden";
+    setTimeout(() => this._tryRenderWidget("loginRecaptcha"), 150);
   }
 
-  _validateRecaptcha(formType) {
-    // En producción usar la sitekey real, este es el key de prueba de Google
-    // que siempre devuelve token válido. En producción verificar en el server.
-    const el = document.getElementById(`${formType}Recaptcha`);
-    if (!el) return true; // si no existe el elemento, pasar
-    try {
-      const response = grecaptcha.getResponse();
-      if (!response || response.length === 0) {
-        this.showError(
-          "Por favor completa el reCAPTCHA.",
-          `${formType}RecaptchaError`,
-        );
-        return false;
-      }
-      return true;
-    } catch {
-      // reCAPTCHA no cargó (sin internet). Permitir pasar con advertencia.
-      console.warn("[reCAPTCHA] No disponible, omitiendo verificación.");
-      return true;
-    }
+  showRegisterModal() {
+    document.getElementById("registerModal")?.classList.add("active");
+    document.body.style.overflow = "hidden";
+    setTimeout(() => this._tryRenderWidget("registerRecaptcha"), 150);
   }
 
-  // ── Login ────────────────────────────────────────────────────────────────────
+  showResetModal() {
+    document.getElementById("resetModal")?.classList.add("active");
+    document.body.style.overflow = "hidden";
+  }
+
+  closeAuthModals() {
+    ["loginModal", "registerModal", "mfaModal", "resetModal"].forEach((id) =>
+      document.getElementById(id)?.classList.remove("active"),
+    );
+    document.body.style.overflow = "";
+  }
+
+  // ── Login ─────────────────────────────────────────────────────────────────────
 
   handleLogin() {
     const emailOrUsername = document.getElementById("loginEmail")?.value.trim();
     const password = document.getElementById("loginPassword")?.value;
 
-    // Limpiar errores
     document.querySelectorAll("#loginForm .error-message").forEach((el) => {
       el.textContent = "";
       el.style.display = "none";
     });
 
-    if (!emailOrUsername || !password) {
+    if (!emailOrUsername || !password)
       return this.showError("Completa todos los campos.", "loginEmailError");
-    }
-
     if (!this._validateRecaptcha("login")) return;
 
     const result = this.model.login(emailOrUsername, password);
@@ -152,7 +208,6 @@ class AuthController {
 
     if (result.success) {
       this.closeAuthModals();
-      // Actualizar UI instantáneamente sin recargar
       this.updateAuthUI();
       AuthMiddleware.applyRoleVisibility();
       this._applyTheme(result.user.tema || "dark");
@@ -168,7 +223,7 @@ class AuthController {
     }
   }
 
-  // ── MFA ──────────────────────────────────────────────────────────────────────
+  // ── MFA ───────────────────────────────────────────────────────────────────────
 
   handleMfaVerification() {
     const code = document.getElementById("mfaCode")?.value.trim();
@@ -184,7 +239,7 @@ class AuthController {
     }
   }
 
-  // ── Registro ─────────────────────────────────────────────────────────────────
+  // ── Registro ──────────────────────────────────────────────────────────────────
 
   async handleRegister() {
     const nombre = document.getElementById("regNombre")?.value.trim();
@@ -218,7 +273,6 @@ class AuthController {
       valid = false;
     }
     if (!valid) return;
-
     if (!this._validateRecaptcha("register")) return;
 
     const backendVal = await this.validationService.validateBackend({
@@ -258,7 +312,7 @@ class AuthController {
     }
   }
 
-  // ── Logout ───────────────────────────────────────────────────────────────────
+  // ── Logout ────────────────────────────────────────────────────────────────────
 
   handleLogout() {
     if (!confirm("¿Cerrar sesión?")) return;
@@ -270,7 +324,7 @@ class AuthController {
     this.showMessage("Sesión cerrada.", "success");
   }
 
-  // ── Recuperación contraseña ──────────────────────────────────────────────────
+  // ── Recuperación ──────────────────────────────────────────────────────────────
 
   handleResetRequest() {
     const email = document.getElementById("resetEmail")?.value.trim();
@@ -281,8 +335,10 @@ class AuthController {
       result.success ? "success" : "error",
     );
     if (result.success) {
-      document.getElementById("resetRequestSection").style.display = "none";
-      document.getElementById("resetPasswordSection").style.display = "block";
+      const req = document.getElementById("resetRequestSection");
+      const pass = document.getElementById("resetPasswordSection");
+      if (req) req.style.display = "none";
+      if (pass) pass.style.display = "block";
     }
   }
 
@@ -310,7 +366,8 @@ class AuthController {
     if (!user) return this.showMessage("Usuario no encontrado.", "error");
     const result = this.model.requestSmsReset(user.id);
     this.showMessage(result.message, "success");
-    document.getElementById("smsVerifySection").style.display = "block";
+    const section = document.getElementById("smsVerifySection");
+    if (section) section.style.display = "block";
     this._smsResetUserId = user.id;
   }
 
@@ -326,52 +383,9 @@ class AuthController {
       result.message || result.error,
       result.success ? "success" : "error",
     );
-    if (result.success) this.closeAuthModals();
   }
 
-  loadSecretQuestion() {
-    const ident = document.getElementById("secretUser")?.value.trim();
-    const result = this.model.verifySecretQuestion(ident, "");
-    if (result.success === false && result.error === "Respuesta incorrecta") {
-      // usuario existe, mostrar pregunta
-    }
-    const users = JSON.parse(localStorage.getItem("lg_users") || "[]");
-    const user = users.find((u) => u.email === ident || u.username === ident);
-    if (!user || !user.secretQuestion)
-      return this.showMessage(
-        "No tiene pregunta de seguridad registrada.",
-        "error",
-      );
-    document.getElementById("secretQuestionText").textContent =
-      user.secretQuestion;
-    document.getElementById("secretQuestionSection").style.display = "block";
-    this._secretUserId = user.id;
-  }
-
-  handleSecretReset() {
-    const answer = document.getElementById("secretAnswer")?.value.trim();
-    const newPass = document.getElementById("secretNewPassword")?.value;
-    const ident = document.getElementById("secretUser")?.value.trim();
-    const check = this.model.verifySecretQuestion(ident, answer);
-    if (!check.success) return this.showMessage(check.error, "error");
-    const r = this.model.resetPasswordWithToken(
-      this.model.requestPasswordReset(ident).token || "",
-      newPass,
-    );
-    // Alternativa directa
-    const users = JSON.parse(localStorage.getItem("lg_users") || "[]");
-    const idx = users.findIndex(
-      (u) => u.email === ident || u.username === ident,
-    );
-    if (idx !== -1) {
-      users[idx].password = hashPassword(newPass);
-      localStorage.setItem("lg_users", JSON.stringify(users));
-      this.showMessage("Contraseña cambiada correctamente.", "success");
-      this.closeAuthModals();
-    }
-  }
-
-  // ── Settings ─────────────────────────────────────────────────────────────────
+  // ── Settings ──────────────────────────────────────────────────────────────────
 
   handleChangePassword() {
     const current = document.getElementById("currentPassword")?.value;
@@ -413,19 +427,19 @@ class AuthController {
     container.innerHTML = sessions
       .map(
         (s) => `
-      <div class="session-item ${s.id === userModel.getCurrentUser().sessionId ? "current-session" : ""}">
-        <div class="session-info">
-          <span class="session-device">${s.deviceInfo || "Dispositivo desconocido"}</span>
-          <span class="session-agent">${(s.userAgent || "").slice(0, 60)}…</span>
-          <span class="session-ip">IP: ${s.ipAddress || "N/A"}</span>
-          <span class="session-date">${new Date(s.createdAt).toLocaleString()}</span>
-        </div>
-        ${
-          s.id === userModel.getCurrentUser().sessionId
-            ? '<span class="session-badge">Sesión actual</span>'
-            : `<button class="btn-revoke-session" onclick="authController.revokeSessionById('${s.id}')">Cerrar sesión</button>`
-        }
-      </div>`,
+        <div class="session-item ${s.id === userModel.getCurrentUser().sessionId ? "current-session" : ""}">
+          <div class="session-info">
+            <span class="session-device">${s.deviceInfo || "Dispositivo desconocido"}</span>
+            <span class="session-agent">${(s.userAgent || "").slice(0, 60)}…</span>
+            <span class="session-ip">IP: ${s.ipAddress || "N/A"}</span>
+            <span class="session-date">${new Date(s.createdAt).toLocaleString()}</span>
+          </div>
+          ${
+            s.id === userModel.getCurrentUser().sessionId
+              ? '<span class="session-badge">Sesión actual</span>'
+              : `<button class="btn-revoke-session" onclick="authController.revokeSessionById('${s.id}')">Cerrar sesión</button>`
+          }
+        </div>`,
       )
       .join("");
   }
@@ -448,22 +462,24 @@ class AuthController {
     const user = userModel.getCurrentUser();
     if (!user) return;
     const mfaStatus = document.getElementById("mfaStatus");
-    const mfaBtn = document.getElementById("toggleMfaBtn");
+    const mfaBtn =
+      document.getElementById("toggleMfaBtn") ||
+      document.getElementById("mfaToggleBtn");
     if (mfaStatus)
       mfaStatus.textContent = user.mfaEnabled ? "Activado" : "Desactivado";
     if (mfaBtn)
       mfaBtn.textContent = user.mfaEnabled ? "Desactivar MFA" : "Activar MFA";
   }
 
-  // ── UI actualización instantánea ─────────────────────────────────────────────
+  // ── UI ────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Actualiza header, nav y role badge SIN recargar la página.
-   * Se llama justo después de login, logout o cambio de rol.
-   */
   updateAuthUI() {
     const user = this.model.getCurrentUser();
-    const authBtns = document.getElementById("authButtons");
+
+    // Soporta tanto id="authButtons" (original) como id="guestMenu" (alternativo)
+    const authBtns =
+      document.getElementById("authButtons") ||
+      document.getElementById("guestMenu");
     const userMenu = document.getElementById("userMenu");
     const myListsBtn = document.getElementById("myListsBtn");
     const settingsBtn = document.getElementById("settingsBtn");
@@ -472,15 +488,15 @@ class AuthController {
     if (user) {
       if (authBtns) authBtns.style.display = "none";
       if (userMenu) userMenu.style.display = "flex";
-      if (myListsBtn) myListsBtn.style.display = "block";
-      if (settingsBtn) settingsBtn.style.display = "block";
+      if (myListsBtn) myListsBtn.style.display = "";
+      if (settingsBtn) settingsBtn.style.display = "";
       if (adminBtn)
-        adminBtn.style.display = user.role === "admin" ? "block" : "none";
+        adminBtn.style.display =
+          user.role === "admin" || user.role === "editor" ? "" : "none";
 
       const nameEl = document.getElementById("usernameDisplay");
       const roleEl = document.getElementById("userRoleBadge");
       const avatarEl = document.getElementById("userAvatar");
-
       if (nameEl) nameEl.textContent = user.username;
       if (roleEl) {
         roleEl.textContent = user.role;
@@ -489,7 +505,9 @@ class AuthController {
       if (avatarEl)
         avatarEl.src =
           user.avatar ||
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(user.nombre + "+" + user.apellido)}&background=6809e5&color=fff&size=40`;
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            (user.nombre || "U") + "+" + (user.apellido || ""),
+          )}&background=6809e5&color=fff&size=40`;
     } else {
       if (authBtns) authBtns.style.display = "flex";
       if (userMenu) userMenu.style.display = "none";
@@ -499,50 +517,13 @@ class AuthController {
     }
   }
 
-  // ── Modales ──────────────────────────────────────────────────────────────────
-
-  showLoginModal() {
-    document.getElementById("loginModal")?.classList.add("active");
-    document.body.style.overflow = "hidden";
-  }
-  showRegisterModal() {
-    document.getElementById("registerModal")?.classList.add("active");
-    document.body.style.overflow = "hidden";
-  }
-  showResetModal() {
-    document.getElementById("resetModal")?.classList.add("active");
-    document.body.style.overflow = "hidden";
-  }
-  closeAuthModals() {
-    ["loginModal", "registerModal", "mfaModal", "resetModal"].forEach((id) =>
-      document.getElementById(id)?.classList.remove("active"),
-    );
-    document.body.style.overflow = "";
-  }
-
-  // ── Reset modal tabs ──────────────────────────────────────────────────────────
-
-  _bindResetTabs() {
-    document.querySelectorAll(".reset-tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        document
-          .querySelectorAll(".reset-tab")
-          .forEach((t) => t.classList.remove("active"));
-        document
-          .querySelectorAll(".reset-tab-content")
-          .forEach((c) => c.classList.remove("active"));
-        tab.classList.add("active");
-        document
-          .getElementById(tab.getAttribute("data-tab"))
-          ?.classList.add("active");
-      });
-    });
-  }
-
-  // ── Toast messages ────────────────────────────────────────────────────────────
+  // ── Mensajes ──────────────────────────────────────────────────────────────────
 
   showMessage(msg, type = "info") {
+    const existing = document.getElementById("authMessage");
+    if (existing) existing.remove();
     const div = document.createElement("div");
+    div.id = "authMessage";
     div.className = `toast-message ${type}`;
     div.textContent = msg;
     document.body.appendChild(div);
@@ -553,12 +534,9 @@ class AuthController {
     }, 3500);
   }
 
-  showError(msg, errorElId) {
-    const el = document.getElementById(errorElId);
-    if (
-      el &&
-      (el.classList.contains("error-message") || el.tagName === "SPAN")
-    ) {
+  showError(msg, targetId) {
+    const el = document.getElementById(targetId);
+    if (el) {
       el.textContent = msg;
       el.style.display = "block";
     } else {
@@ -566,44 +544,56 @@ class AuthController {
     }
   }
 
-  // ── Validación de campo ──────────────────────────────────────────────────────
+  // ── Validación ────────────────────────────────────────────────────────────────
 
   _validateField(fieldId, type) {
     const field = document.getElementById(fieldId);
     if (!field) return true;
     const val = field.value.trim();
-    const patterns = {
-      email: /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/,
-      username: /^[a-zA-Z0-9_\-]{3,20}$/,
-      password: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/,
-      name: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{2,50}$/,
-      confirmPassword: null,
-    };
-    const msgs = {
-      email: "Correo inválido.",
-      username: "3-20 caracteres alfanuméricos.",
-      password:
-        "Mínimo 6 caracteres, una mayúscula, una minúscula y un número.",
-      name: "Solo letras y espacios (2-50 caracteres).",
-      confirmPassword: "Las contraseñas no coinciden.",
-    };
     const errId = fieldId + "Error";
+
     if (!val) {
       this.showError("Este campo es obligatorio.", errId);
       return false;
     }
+
+    // Patrones sin caracteres acentuados en la clase (evita el SyntaxError del navegador)
+    const patterns = {
+      email: /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/,
+      username: /^[a-zA-Z0-9_\-]{3,20}$/,
+      password: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/,
+      // "name" solo verifica longitud — los caracteres acentuados los deja pasar
+      name: null,
+    };
+
+    const msgs = {
+      email: "Ingresa un correo electrónico válido.",
+      username: "Solo letras, números y guiones (3-20 caracteres).",
+      password:
+        "Mínimo 6 caracteres, una mayúscula, una minúscula y un número.",
+      name: null,
+    };
+
     if (type === "confirmPassword") {
       const pass = document.getElementById("regPassword")?.value;
       if (val !== pass) {
-        this.showError(msgs.confirmPassword, errId);
+        this.showError("Las contraseñas no coinciden.", errId);
         return false;
       }
       return true;
     }
+
     if (patterns[type] && !patterns[type].test(val)) {
       this.showError(msgs[type], errId);
       return false;
     }
+
+    // Validación mínima de longitud para nombres
+    if (type === "name" && val.length < 2) {
+      this.showError("Mínimo 2 caracteres.", errId);
+      return false;
+    }
+
     return true;
   }
 }

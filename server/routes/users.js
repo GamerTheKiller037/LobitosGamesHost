@@ -1,5 +1,6 @@
 // server/routes/users.js
-// Rutas protegidas: /api/users/me, /change-password, /toggle-mfa, /preferences
+// FIX: eliminado el bloque duplicado que redefinía el modelo User al final
+// Ahora importa User desde models/User.js correctamente
 
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
@@ -47,6 +48,7 @@ router.put("/change-password", authenticate, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: "Usuario no encontrado." });
     if (!(await user.comparePassword(currentPassword)))
       return res.status(400).json({ error: "Contraseña actual incorrecta." });
     user.password = newPassword;
@@ -97,6 +99,8 @@ router.put(
   async (req, res) => {
     try {
       const { role } = req.body;
+      if (!["admin", "editor", "usuario"].includes(role))
+        return res.status(400).json({ error: "Rol inválido." });
       await User.findByIdAndUpdate(req.params.id, { role });
       res.json({ success: true });
     } catch {
@@ -104,5 +108,38 @@ router.put(
     }
   },
 );
+
+// DELETE /api/users/:id  (solo admin)
+router.delete("/:id", authenticate, requireRole("admin"), async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.params.id, { activo: false });
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Error." });
+  }
+});
+
+// GET /api/users/sessions  (sesiones del usuario actual)
+router.get("/sessions", authenticate, async (req, res) => {
+  try {
+    const sessions = await Session.find({
+      userId: req.user.id,
+      isActive: true,
+    });
+    res.json({ sessions });
+  } catch {
+    res.status(500).json({ error: "Error." });
+  }
+});
+
+// DELETE /api/users/sessions/:sessionId  (revocar sesion especifica)
+router.delete("/sessions/:sessionId", authenticate, async (req, res) => {
+  try {
+    await Session.findByIdAndUpdate(req.params.sessionId, { isActive: false });
+    res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Error." });
+  }
+});
 
 module.exports = router;
