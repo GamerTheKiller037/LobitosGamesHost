@@ -6,7 +6,8 @@ const PLACEHOLDER_USER =
 // CAMBIA ESTO A true PARA USAR EL BACKEND REAL
 // ─────────────────────────────────────────────────────────────
 const USE_BACKEND = true;
-const API_BASE = "http://lobitosgameshostbackend-production.up.railway.app/api";
+const API_BASE =
+  "https://lobitosgameshostbackend-production.up.railway.app/api";
 
 function hashPassword(pwd) {
   let h = 0;
