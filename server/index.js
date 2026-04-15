@@ -18,25 +18,22 @@ const notifyService = require("./routes/microservices/notifyService");
 const analyticsService = require("./routes/microservices/analyticsService");
 
 const app = express();
+const isDev = process.env.NODE_ENV === "development";
 
 // ── Logs de acceso ──────────────────────────────────────────────────────────
-if (process.env.NODE_ENV === "development") {
-  // Esto solo pasará en tu compu
-  const logsDir = path.join(__dirname, "logs");
+let logsDir = null;
+if (isDev) {
+  logsDir = path.join(__dirname, "logs");
   if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir);
   const accessLogStream = fs.createWriteStream(
     path.join(logsDir, "access.log"),
-    {
-      flags: "a",
-    },
+    { flags: "a" },
   );
   app.use(morgan("combined", { stream: accessLogStream }));
 }
+app.use(morgan("dev")); // Esto se ve en la consola de Railway
 
-// Esto pasará SIEMPRE (en consola), que es lo que Railway sí te deja ver
-app.use(morgan("dev"));
-
-// ── Helmet (headers de seguridad) ─────────────────────────────────────────────
+// ── Helmet ────────────────────────────────────────────────────────────────────
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -49,7 +46,6 @@ const allowedOrigins = [
   process.env.CLIENT_ORIGIN || "http://127.0.0.1:5500",
   "http://localhost:5500",
   "http://localhost:3000",
-  "http://127.0.0.1:3000",
 ];
 app.use(
   cors({
@@ -63,87 +59,77 @@ app.use(
   }),
 );
 
-// ── Body parsing ──────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// ── Rate limiting global ──────────────────────────────────────────────────────
+// ── Rate limiting ─────────────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+  windowMs: 15 * 60 * 1000,
   max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
   message: { error: "Demasiadas peticiones. Intenta en 15 minutos." },
 });
 app.use(globalLimiter);
 
-// Rate limit estricto para auth
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { error: "Demasiados intentos de autenticación." },
-});
-
-// ── Middleware de log de seguridad ────────────────────────────────────────────
+// ── Middleware de seguridad corregido ──────────────────────────────────────────
 app.use((req, res, next) => {
   const suspicious =
     req.path.includes("..") ||
     req.path.includes("<script") ||
     /['";<>]/.test(req.query?.toString() || "");
   if (suspicious) {
-    const secLog = path.join(logsDir, "security.log");
-    const entry = `[${new Date().toISOString()}] SUSPICIOUS ${req.method} ${req.path} IP:${req.ip} UA:${req.headers["user-agent"]}\n`;
-    fs.appendFileSync(secLog, entry);
+    console.warn(`⚠️ Intento sospechoso detectado: ${req.method} ${req.path}`);
+    // Solo intentamos escribir archivo si estamos en local
+    if (isDev && logsDir) {
+      const secLog = path.join(logsDir, "security.log");
+      fs.appendFileSync(
+        secLog,
+        `[${new Date().toISOString()}] SUSPICIOUS ${req.method} ${req.path}\n`,
+      );
+    }
     return res.status(400).json({ error: "Petición no permitida." });
   }
   next();
 });
 
-// ── Rutas API principal ───────────────────────────────────────────────────────
-app.use("/api/auth", authLimiter, authRoutes);
+// ── Rutas ─────────────────────────────────────────────────────────────────────
+app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
-
-// ── Microservicios ────────────────────────────────────────────────────────────
 app.use("/api/catalog", catalogService);
 app.use("/api/notify", notifyService);
 app.use("/api/analytics", analyticsService);
 
-// ── Health check ──────────────────────────────────────────────────────────────
 app.get("/api/health", (_, res) =>
-  res.json({
-    status: "ok",
-    time: new Date(),
-    env: process.env.NODE_ENV || "development",
-    services: ["auth", "users", "admin", "catalog", "notify", "analytics"],
-  }),
+  res.json({ status: "ok", env: process.env.NODE_ENV || "development" }),
 );
 
-// ── Deshabilitar info del servidor en producción ──────────────────────────────
 app.disable("x-powered-by");
 
-// ── 404 ───────────────────────────────────────────────────────────────────────
+// ── 404 corregido ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
-  const secLog = path.join(logsDir, "security.log");
-  fs.appendFileSync(
-    secLog,
-    `[${new Date().toISOString()}] 404 ${req.method} ${req.path} IP:${req.ip}\n`,
-  );
+  console.log(`404 - ${req.method} ${req.path}`);
+  if (isDev && logsDir) {
+    const secLog = path.join(logsDir, "security.log");
+    fs.appendFileSync(
+      secLog,
+      `[${new Date().toISOString()}] 404 ${req.method} ${req.path}\n`,
+    );
+  }
   res.status(404).json({ error: "Endpoint no encontrado" });
 });
 
 // ── Error handler ─────────────────────────────────────────────────────────────
 app.use((err, req, res, _next) => {
   console.error("[Server Error]", err.message);
-  // En producción no exponer detalles del error
-  const isDev = process.env.NODE_ENV !== "production";
-  res.status(500).json({
-    error: "Error interno del servidor",
-    ...(isDev && { detail: err.message }),
-  });
+  res
+    .status(500)
+    .json({
+      error: "Error interno del servidor",
+      ...(isDev && { detail: err.message }),
+    });
 });
 
-// ── Conectar MongoDB y levantar servidor ──────────────────────────────────────
+// ── Conexión ──────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 const MONGO_URI =
   process.env.MONGO_URI || "mongodb://127.0.0.1:27017/lobitosgames";
@@ -151,10 +137,10 @@ const MONGO_URI =
 mongoose
   .connect(MONGO_URI)
   .then(() => {
-    console.log("✅ MongoDB conectado:", MONGO_URI);
+    console.log("✅ MongoDB conectado correctamente");
     app.listen(PORT, () => {
-      console.log(`🚀 Servidor en http://localhost:${PORT}`);
-      console.log(`📋 Logs en: ${logsDir}`);
+      console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
+      if (isDev) console.log(`📋 Logs locales activados en: ${logsDir}`);
     });
   })
   .catch((err) => {
